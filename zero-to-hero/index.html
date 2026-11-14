@@ -1,0 +1,895 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Andrej Karpathy《Neural Networks: Zero to Hero》10 集的概念与讲法，按视频时间线拆解，配可播放、可拖动的小实验。">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Zero to Hero 动画讲义</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: a lecture-notebook page. Hero map + loss ledger, sticky lecture rail, then one timeline per lecture:
+   timestamps down the left like a video scrubber, each teaching move on the right with its live demo inline.
+   Colour carries meaning everywhere: blue = forward pass / data, orange = backward pass / gradient. */
+:root {
+  --paper: #f2f5f4; --panel: #ffffff; --ink: #16222c; --muted: #5c6a74; --rule: #d5dde0; --code: #e8eef0;
+  --fwd: #1f63c6; --bwd: #cf550e; --ok: #23875a;
+  --fwd-soft: rgba(31, 99, 198, .12); --bwd-soft: rgba(207, 85, 14, .12);
+  --s1: #a9c8f2; --s2: #75a5e6; --s3: #3f7fd6; --s4: #1f5fb8; --s5: #0f3a78;
+  --tk0: #dbe8fb; --tk1: #fde2cd; --tk2: #d8eedf; --tk3: #ecdff5; --tk4: #f8edc4; --tk5: #d3ecee;
+  --pc1: #1f63c6; --pc2: #8fb3e8; --pc3: #cf550e; --pc4: #e9a073; --pc5: #5c6a74; --pc6: #b3bec5;
+  --f-display: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1519; --panel: #161e24; --ink: #e2e9ed; --muted: #8d9ba5; --rule: #2a353d; --code: #1d272e;
+    --fwd: #62a0ff; --bwd: #ff8f50; --ok: #4cc287;
+    --fwd-soft: rgba(98, 160, 255, .16); --bwd-soft: rgba(255, 143, 80, .16);
+    --s1: #2c5a96; --s2: #3d7bd0; --s3: #62a0ff; --s4: #93c0ff; --s5: #cfe2ff;
+    --tk0: #1f3452; --tk1: #4a301d; --tk2: #1d3a2a; --tk3: #372646; --tk4: #403816; --tk5: #1b3b3f;
+    --pc1: #62a0ff; --pc2: #2f5c96; --pc3: #ff8f50; --pc4: #9a5530; --pc5: #8d9ba5; --pc6: #4a5761;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1519; --panel: #161e24; --ink: #e2e9ed; --muted: #8d9ba5; --rule: #2a353d; --code: #1d272e;
+  --fwd: #62a0ff; --bwd: #ff8f50; --ok: #4cc287;
+  --fwd-soft: rgba(98, 160, 255, .16); --bwd-soft: rgba(255, 143, 80, .16);
+  --s1: #2c5a96; --s2: #3d7bd0; --s3: #62a0ff; --s4: #93c0ff; --s5: #cfe2ff;
+  --tk0: #1f3452; --tk1: #4a301d; --tk2: #1d3a2a; --tk3: #372646; --tk4: #403816; --tk5: #1b3b3f;
+  --pc1: #62a0ff; --pc2: #2f5c96; --pc3: #ff8f50; --pc4: #9a5530; --pc5: #8d9ba5; --pc6: #4a5761;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(64px + env(safe-area-inset-top, 0px)); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+a { color: var(--fwd); }
+code, .mono { font-family: var(--f-mono); font-size: .88em; }
+code { background: var(--code); padding: .08em .35em; border-radius: 4px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.t-fwd { color: var(--fwd); } .t-bwd { color: var(--bwd); } .muted { color: var(--muted); }
+
+/* hero */
+.hero { padding-block: 48px 28px; display: grid; gap: 22px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(2rem, 5.2vw, 3.5rem); line-height: 1.12; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+h1 .f { color: var(--fwd); } h1 .b { color: var(--bwd); }
+.lede { max-width: 68ch; margin: 0; font-size: 1.06rem; color: var(--ink); }
+.legend-row { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+.legend-row span { display: inline-flex; align-items: center; gap: 8px; }
+.legend-row i { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
+.map { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+.rc { display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: auto auto; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--panel); color: var(--ink); text-decoration: none; font-family: var(--f-mono); font-size: 12px; line-height: 1.4; transition: transform .15s, box-shadow .15s; }
+.rc:hover, .rc:focus-visible { transform: translateY(-2px); box-shadow: 0 3px 0 var(--fwd); outline: none; }
+.rc-n { grid-row: 1 / 3; border-right: 1.5px solid var(--ink); display: grid; place-items: center; font-weight: 600; font-size: 13px; }
+.rc-t { padding: 6px 8px; border-bottom: 1px solid var(--rule); font-weight: 600; font-size: 12.5px; }
+.rc-d { padding: 6px 8px; color: var(--muted); font-size: 11.5px; }
+.ledger { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.ledger > div { min-width: 0; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px 6px; }
+.ledger h3 { margin: 0 0 2px; font-family: var(--f-display); font-size: 15px; font-weight: 600; }
+.ledger p { margin: 0 0 6px; font-size: 13px; color: var(--muted); }
+
+/* rail */
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-block: 1px solid var(--rule); }
+.rail .wrap { display: flex; gap: 6px; align-items: center; overflow-x: auto; padding-block: 10px; scrollbar-width: none; }
+.rail .wrap::-webkit-scrollbar { display: none; }
+.rail b { font-family: var(--f-display); font-size: 14px; margin-right: 8px; white-space: nowrap; }
+.rail a { font-family: var(--f-mono); font-size: 12.5px; text-decoration: none; color: var(--muted); padding: 4px 10px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+.rail a:hover { color: var(--ink); border-color: var(--rule); }
+.rail a.on { color: var(--panel); background: var(--ink); }
+
+/* lecture */
+.lec { padding-block: 56px 20px; border-bottom: 1px solid var(--rule); }
+.lec-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 22px; align-items: end; margin-bottom: 18px; }
+.lec-num { font-family: var(--f-display); font-weight: 700; font-size: clamp(3rem, 8vw, 5.2rem); line-height: .9; color: var(--fwd); grid-column: 1; grid-row: 1 / 3; }
+.lec-en { grid-column: 2; grid-row: 2; }
+.lec-head h2 { grid-column: 2; grid-row: 1; margin: 0; font-family: var(--f-display); font-weight: 700; font-size: clamp(1.45rem, 3.2vw, 2.1rem); line-height: 1.2; text-wrap: balance; }
+.lec-en { margin: 0; color: var(--muted); font-size: 13.5px; font-style: italic; }
+.watch { font-family: var(--f-mono); font-size: 12.5px; white-space: nowrap; grid-column: 3; grid-row: 1 / 3; align-self: center; color: var(--ink); border: 1px solid var(--rule); padding: 6px 12px; border-radius: 6px; text-decoration: none; background: var(--panel); }
+.watch:hover { border-color: var(--fwd); color: var(--fwd); }
+.hook { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 16px; margin: 0 0 26px; }
+.hook .label, .tl .ts { font-family: var(--f-mono); font-size: 12px; color: var(--muted); letter-spacing: .04em; padding-top: 4px; }
+.hook p { margin: 0; max-width: 70ch; font-size: 1.04rem; }
+.note { font-size: 13.5px; color: var(--muted); background: var(--code); border-radius: 6px; padding: 8px 12px; max-width: 80ch; }
+.tl { list-style: none; margin: 0; padding: 0; position: relative; }
+.tl::before { content: ""; position: absolute; left: 110px; top: 6px; bottom: 6px; width: 1px; background: var(--rule); }
+.tl > li { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 0 26px; padding-bottom: 22px; position: relative; }
+.tl > li::before { content: ""; position: absolute; left: 106px; top: 10px; width: 9px; height: 9px; border-radius: 50%; background: var(--paper); border: 2px solid var(--muted); }
+.tl > li:has(.demo)::before { border-color: var(--fwd); background: var(--fwd); }
+.tl .ts { text-decoration: none; text-align: right; padding-right: 10px; }
+.tl a.ts:hover { color: var(--fwd); }
+.tl-body { min-width: 0; }
+.tl-body h3 { margin: 0 0 4px; font-family: var(--f-display); font-size: 1.08rem; font-weight: 600; line-height: 1.4; }
+.tl-body > p { margin: 0; max-width: 70ch; }
+.keep { margin: 18px 0 0; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 0 26px; }
+.keep .label { font-family: var(--f-mono); font-size: 12px; color: var(--muted); text-align: right; padding-right: 10px; padding-top: 4px; }
+.keep ul { margin: 0; padding-left: 1.1em; max-width: 72ch; }
+.keep li { margin-bottom: 4px; }
+.keep li::marker { color: var(--bwd); }
+
+/* demo shell */
+.demo { margin: 14px 0 6px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px 16px; display: grid; gap: 10px; min-width: 0; }
+.demo figcaption { font-family: var(--f-display); font-weight: 600; font-size: 15px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.demo .tag { font-family: var(--f-mono); font-weight: 400; font-size: 11px; letter-spacing: .05em; color: var(--fwd); border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; }
+.demo-body { display: grid; gap: 10px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.btn { font: 500 13px/1.2 var(--f-body); padding: 7px 12px; border-radius: 6px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn:focus-visible, input:focus-visible, textarea:focus-visible, .seg input:focus-visible + label, [tabindex]:focus-visible { outline: 2px solid var(--fwd); outline-offset: 2px; }
+.counter { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.chips { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.chips .btn { padding: 5px 9px; font-size: 12px; }
+.slider { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.slider input { width: 150px; accent-color: var(--fwd); }
+.sl-lab { color: var(--muted); }
+.sl-val { font-family: var(--f-mono); font-size: 12.5px; min-width: 4.5em; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--fwd); width: 16px; height: 16px; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { font-size: 12.5px; padding: 6px 10px; cursor: pointer; border-right: 1px solid var(--rule); background: var(--paper); white-space: nowrap; }
+.seg label:last-child { border-right: 0; }
+.seg input:checked + label { background: var(--ink); color: var(--panel); }
+.field { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.field.wide { display: flex; flex-wrap: wrap; width: 100%; }
+.field input, .field textarea, textarea { font: 14px/1.5 var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px; min-width: 0; }
+.field input { width: 12em; }
+.field.wide input, .field.wide textarea { flex: 1 1 260px; width: auto; }
+textarea { width: 100%; resize: vertical; }
+.narr { margin: 0; font-size: 14px; line-height: 1.7; background: var(--code); border-radius: 6px; padding: 9px 12px; min-height: 3.2em; }
+.narr b { font-family: var(--f-mono); font-weight: 600; }
+.hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+.mini-title { margin: 0; font-size: 12.5px; color: var(--muted); font-family: var(--f-mono); }
+.readout { display: flex; flex-wrap: wrap; gap: 4px 20px; font-family: var(--f-mono); font-size: 13px; }
+.cv-box { width: 100%; min-width: 0; }
+.cv { display: block; }
+.scroll-x { overflow-x: auto; min-width: 0; }
+.scroll-x > svg { display: block; width: 100%; height: auto; }
+.demo svg { display: block; width: 100%; height: auto; font-family: var(--f-mono); }
+.err { color: var(--bwd); font-size: 13px; }
+.code { font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6; background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; white-space: pre; }
+.code.small { font-size: 12px; }
+.two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.two-col > * { min-width: 0; }
+
+/* svg vocabulary */
+.lab { fill: var(--ink); font-size: 12px; }
+.lab.small { font-size: 11px; } .lab.tiny { font-size: 10px; fill: var(--muted); }
+.lab.t-bwd, .lab.tiny.t-bwd { fill: var(--bwd); } .lab.t-fwd { fill: var(--fwd); } .lab.muted { fill: var(--muted); }
+.shape { fill: var(--muted); font-size: 11px; }
+.axis { stroke: var(--muted); stroke-width: 1; fill: none; }
+.edge { fill: none; stroke: var(--rule); stroke-width: 1.6; transition: stroke .3s, opacity .3s; }
+.edge.thin { stroke-width: 1; }
+.edge.on-f { stroke: var(--fwd); stroke-width: 2.4; stroke-dasharray: 7 5; animation: flowf .7s linear infinite; }
+.edge.on-b { stroke: var(--bwd); stroke-width: 2.4; stroke-dasharray: 7 5; animation: flowb .7s linear infinite; }
+@keyframes flowf { to { stroke-dashoffset: -12; } }
+@keyframes flowb { to { stroke-dashoffset: 12; } }
+.rec rect { fill: var(--panel); stroke: var(--ink); stroke-width: 1.3; transition: fill .3s; }
+.rec line { stroke: var(--ink); stroke-width: .8; }
+.rec-lab { fill: var(--ink); font-size: 11.5px; font-weight: 600; }
+.rec-data { fill: var(--fwd); font-size: 11.5px; }
+.rec-grad { fill: var(--bwd); font-size: 11.5px; }
+.rec.hi-f rect { fill: var(--fwd-soft); stroke: var(--fwd); }
+.rec.hi-b rect { fill: var(--bwd-soft); stroke: var(--bwd); }
+.op circle { fill: var(--paper); stroke: var(--muted); }
+.op text { fill: var(--ink); font-size: 12px; }
+
+/* 01 mlp */
+.mlp-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; }
+.mlp-grid > * { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.net line.w { stroke-linecap: round; transition: stroke .2s; }
+.net line.pos { stroke: var(--ink); stroke-opacity: .7; }
+.net line.neg { stroke: var(--muted); stroke-opacity: .55; stroke-dasharray: 3 3; }
+.net.pulse-f line.w { stroke: var(--fwd); stroke-opacity: .9; }
+.net.pulse-b line.w { stroke: var(--bwd); stroke-opacity: .9; }
+.net .nn { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; }
+.net .nin { fill: var(--code); stroke: var(--muted); }
+.preds .pbar { fill: var(--fwd); fill-opacity: .8; }
+.preds .target { stroke: var(--bwd); stroke-width: 2.5; }
+.code .ln { display: inline-block; padding: 0 4px; border-radius: 3px; }
+.code .ln.on { background: var(--fwd-soft); }
+.code .ln-bwd.on, .code .ln-upd.on { background: var(--bwd-soft); }
+.code .ln.strike { text-decoration: line-through; color: var(--muted); }
+
+/* 02 */
+.count-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); gap: 18px; }
+.count-grid > * { min-width: 0; display: grid; gap: 8px; align-content: start; }
+.tape { display: flex; flex-wrap: wrap; gap: 3px; font-family: var(--f-mono); font-size: 18px; }
+.tape.big { font-size: 20px; }
+.tape.ids { font-size: 12px; }
+.tch { min-width: 1.6em; text-align: center; padding: 2px 4px; border-radius: 4px; background: var(--code); border: 1px solid transparent; transition: background .2s; }
+.tch.on, .tch.ctx { background: var(--fwd-soft); border-color: var(--fwd); }
+.tch.tgt { background: var(--bwd-soft); border-color: var(--bwd); }
+.tch.pair { background: var(--bwd-soft); border-color: var(--bwd); letter-spacing: .05em; }
+.tch.minted { color: var(--fwd); font-weight: 600; }
+.tch.fresh { background: var(--fwd-soft); border-color: var(--fwd); }
+.recent { list-style: none; margin: 0; padding: 0; font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); }
+.gen-line { font-family: var(--f-mono); font-size: 20px; min-height: 1.6em; }
+.caret { color: var(--bwd); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.gen-list { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+.gen-list li { font-family: var(--f-mono); }
+.gen-list .muted { font-size: 11px; }
+.gen-list.cols { gap: 4px 12px; }
+.nll-table { display: grid; gap: 2px; font-family: var(--f-mono); font-size: 13px; }
+.nll-row { display: grid; grid-template-columns: 4em 5.5em 5.5em minmax(0, 1fr); gap: 10px; align-items: center; padding: 2px 4px; border-radius: 4px; }
+.nll-row.head { color: var(--muted); font-size: 11.5px; }
+.nll-row.zero { background: var(--bwd-soft); }
+.barcell { position: relative; height: 16px; display: flex; align-items: center; }
+.barcell i { position: absolute; left: 0; top: 2px; bottom: 2px; background: var(--bwd); opacity: .75; border-radius: 2px; }
+.barcell b { position: relative; padding-left: 6px; font-weight: 600; font-size: 12px; }
+.onehot .oh { fill: var(--code); stroke: var(--rule); stroke-width: .5; }
+.onehot .oh.on { fill: var(--fwd); }
+.onehot .wcell { fill: var(--fwd); }
+.onehot .rowbox { fill: none; stroke: var(--bwd); stroke-width: 2; transition: opacity .3s; }
+.onehot .obar { fill: var(--fwd); fill-opacity: .7; transition: y .4s, height .4s; }
+.onehot .obar.neg { fill: var(--muted); }
+.onehot .obar.tgt { fill: var(--bwd); fill-opacity: 1; }
+
+/* 03 */
+.win-list { display: grid; gap: 3px; font-size: 14px; }
+.win-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; padding: 2px 6px; border-radius: 4px; }
+.win-row.on { background: var(--fwd-soft); }
+.win-row.later { opacity: .3; }
+.win-row .arrow { color: var(--muted); }
+.arch .stage { transition: opacity .3s; }
+.arch .stage.dim { opacity: .14; }
+.arch .tokbox { fill: var(--panel); stroke: var(--ink); }
+.arch .tok, .tok { fill: var(--ink); font-size: 15px; font-weight: 600; }
+.arch .crow { fill: var(--code); stroke: var(--rule); stroke-width: .5; }
+.arch .crow.on { fill: var(--fwd); }
+.arch .vec { fill: var(--fwd); fill-opacity: .35; stroke: var(--fwd); }
+.arch .vec.v1 { fill-opacity: .55; } .arch .vec.v2 { fill-opacity: .8; }
+.arch .hn { fill: var(--panel); stroke: var(--ink); }
+.arch .lbar { fill: var(--fwd); fill-opacity: .7; }
+.arch .lbar.neg { fill: var(--muted); }
+.arch .pbar2 { fill: var(--fwd); fill-opacity: .5; }
+.arch .pbar2.tgt { fill: var(--bwd); fill-opacity: 1; }
+.train-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; }
+.train-grid > * { min-width: 0; display: grid; gap: 8px; align-content: start; }
+
+/* 04 */
+.layer-stats { display: grid; gap: 1px; font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.ls { display: flex; align-items: center; gap: 8px; }
+.sw { display: inline-block; width: 14px; height: 4px; border-radius: 2px; }
+.sw.s1 { background: var(--s1); } .sw.s2 { background: var(--s2); } .sw.s3 { background: var(--s3); } .sw.s4 { background: var(--s4); } .sw.s5 { background: var(--s5); }
+.bn .dot { fill: var(--fwd); fill-opacity: .55; transition: transform .7s cubic-bezier(.4, 0, .2, 1); }
+.bn .me { fill: var(--bwd); transition: transform .7s cubic-bezier(.4, 0, .2, 1); }
+.bn .mu { stroke: var(--bwd); stroke-dasharray: 4 3; transition: all .7s; }
+.bn .sdband { fill: var(--fwd-soft); transition: all .7s; }
+
+/* 05 */
+.nj-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 12px; font-size: 12.5px; font-family: var(--f-mono); }
+.ninja { display: grid; gap: 2px; min-width: 760px; max-height: 420px; overflow-y: auto; position: relative; }
+.controls-slot:empty { display: none; }
+.nj-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 12px; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+.nj-row code { background: none; padding: 0; white-space: pre-wrap; }
+.nj-b { color: var(--bwd); opacity: 0; transition: opacity .3s; }
+.nj-row.done .nj-b { opacity: .75; }
+.nj-row.cur { background: var(--bwd-soft); }
+.nj-row.cur .nj-b { opacity: 1; font-weight: 600; }
+.dual .cell.idle { fill: var(--code); stroke: var(--rule); }
+.dual .cell.f { fill: var(--fwd-soft); stroke: var(--fwd); }
+.dual .cell.g { fill: var(--bwd-soft); stroke: var(--bwd); }
+.big-arrow { font-size: 26px; fill: var(--muted); }
+.big-arrow.t-fwd { fill: var(--fwd); } .big-arrow.t-bwd { fill: var(--bwd); }
+.code-t { font-size: 11.5px; }
+.ce .pb { fill: var(--fwd); fill-opacity: .55; transition: all .25s; }
+.ce .cebar.tgt .pb { fill: var(--ok); fill-opacity: .8; }
+.ce .cebar { cursor: pointer; }
+.ce .force { stroke: var(--bwd); stroke-width: 3; }
+.ce .force-head { fill: none; stroke: var(--bwd); stroke-width: 3; stroke-linejoin: round; }
+
+/* 06 */
+.wave .wn rect { fill: var(--panel); stroke: var(--ink); }
+.wave .wn circle { fill: var(--fwd); fill-opacity: .25; stroke: var(--fwd); }
+.wave .wn, .wave .edge { transition: opacity .4s; }
+.wave .edge { stroke: var(--muted); stroke-opacity: .6; }
+.ladder { display: grid; gap: 6px; }
+.lad-row { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr) 4.2em minmax(0, 10em); gap: 12px; align-items: center; font-size: 13.5px; }
+.lad-bar { height: 12px; background: var(--code); border-radius: 3px; overflow: hidden; }
+.lad-bar i { display: block; height: 100%; background: var(--fwd); }
+.lad-v { font-family: var(--f-mono); }
+.lad-note { color: var(--muted); font-size: 12.5px; }
+.bnbug .cube { fill: var(--panel); stroke: var(--muted); stroke-width: .8; transition: fill .3s; }
+.bnbug .cube.sel { fill: var(--bwd); fill-opacity: .7; stroke: var(--bwd); }
+.conv .cn { fill: var(--panel); stroke: var(--rule); stroke-width: 1.5; transition: all .3s; }
+.conv .cn.l0 { fill: var(--code); }
+.conv .cn.done { fill: var(--fwd-soft); stroke: var(--s2); }
+.conv .cn.cur { fill: var(--fwd); stroke: var(--fwd); }
+.conv .cn.reuse { fill: var(--fwd); stroke: var(--bwd); stroke-width: 3; }
+.conv .edge.on-f { animation: none; stroke-dasharray: none; }
+
+/* 07 */
+.mc { fill: var(--code); stroke: none; }
+.mc.on { fill: var(--fwd); fill-opacity: .25; }
+.mc.off { fill: var(--code); }
+.mc.blank { fill: none; }
+.mct { fill: var(--ink); font-size: 11px; }
+.vc { fill: var(--code); }
+.vc.on { fill: var(--bwd-soft); stroke: var(--bwd); }
+.op-t { fill: var(--muted); font-size: 18px; }
+.arc { fill: none; stroke: var(--bwd); stroke-linecap: round; }
+.atok rect { fill: var(--panel); stroke: var(--rule); stroke-width: 1.5; }
+.atok { cursor: pointer; }
+.atok.v rect { stroke: var(--fwd); }
+.atok.sel rect { fill: var(--bwd-soft); stroke: var(--bwd); stroke-width: 2.5; }
+.atok.fut { opacity: .35; }
+.attn-heat { overflow-x: auto; }
+.hm { display: grid; gap: 2px; max-width: 380px; font-family: var(--f-mono); font-size: 11px; }
+.hm-h { text-align: center; color: var(--muted); }
+.hm-c { aspect-ratio: 1; border-radius: 2px; background: color-mix(in srgb, var(--fwd) calc(var(--a) * 100%), var(--code)); }
+.hm-c.masked { background: repeating-linear-gradient(45deg, var(--code) 0 3px, var(--paper) 3px 6px); }
+.hm-c.selrow { outline: 1.5px solid var(--bwd); outline-offset: -1px; }
+.block .bx rect { fill: var(--panel); stroke: var(--ink); stroke-width: 1.3; transition: all .3s; }
+.block .bx text { fill: var(--ink); font-size: 12.5px; }
+.block .bx.io rect { fill: var(--code); }
+.block .bx.plus rect { rx: 13; }
+.block .bx.comm rect { stroke: var(--fwd); }
+.block .bx.comp rect { stroke: var(--s4); stroke-dasharray: 4 2; }
+.block .bx.hi-f rect { fill: var(--fwd-soft); stroke: var(--fwd); stroke-width: 2; }
+.block .bx.hi-b rect { fill: var(--bwd-soft); stroke: var(--bwd); stroke-width: 2; }
+.block .edge.trunk { stroke: var(--muted); stroke-width: 5; }
+.block .edge.branch { stroke-width: 1.6; }
+.block .edge.hi-f { stroke: var(--fwd); }
+.block .edge.trunk.hi-f { stroke: var(--fwd); }
+.block .edge.hi-b { stroke: var(--bwd); stroke-dasharray: 10 6; animation: flowb .6s linear infinite; }
+.block .edge.hi-b2 { stroke: var(--bwd); stroke-opacity: .45; stroke-dasharray: 4 5; animation: flowb .9s linear infinite; }
+
+/* 08 */
+.pipe { display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; }
+.pipe-step { flex: 1 1 140px; display: grid; gap: 4px; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1.5px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; font: inherit; }
+.pipe-step.on { border-color: var(--fwd); background: var(--fwd-soft); }
+.pipe-step.past { border-color: var(--s2); }
+.pipe-k { font-family: var(--f-display); font-weight: 600; font-size: 15px; }
+.pipe-en { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.pipe-bar { height: 6px; background: var(--code); border-radius: 3px; overflow: hidden; }
+.pipe-bar i { display: block; height: 100%; background: var(--bwd); }
+.pipe-arrow { align-self: center; color: var(--muted); font-size: 18px; }
+.pipe-detail { display: grid; grid-template-columns: 6em minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 14.5px; }
+.pipe-detail dt { color: var(--muted); font-size: 13px; font-family: var(--f-mono); padding-top: 2px; }
+.pipe-detail dd { margin: 0; }
+.mono-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 14px; }
+.mono-list li { opacity: .25; transition: opacity .3s; display: flex; gap: 8px; align-items: baseline; }
+.mono-list li.on { opacity: 1; }
+.pill { font-family: var(--f-mono); font-size: 11px; color: var(--bwd); border: 1px solid currentColor; border-radius: 999px; padding: 0 7px; white-space: nowrap; }
+.toks { display: flex; flex-wrap: wrap; gap: 6px; }
+.toks .tk { display: grid; gap: 4px; justify-items: center; opacity: .2; transition: opacity .3s; }
+.toks .tk.on { opacity: 1; }
+.tk-t { font-family: var(--f-mono); font-size: 13px; background: var(--code); padding: 2px 6px; border-radius: 4px; }
+.tk-c { width: 10px; height: 40px; border-radius: 3px; background: repeating-linear-gradient(to top, var(--fwd) 0 3px, transparent 3px 5px); }
+.think .tq { fill: var(--code); stroke: var(--rule); }
+.think .ta { fill: var(--bwd-soft); stroke: var(--bwd); }
+.think .layer { fill: var(--fwd); fill-opacity: .7; animation: pop .5s ease-out both; }
+@keyframes pop { from { transform: translateY(6px); opacity: 0; } }
+
+/* 09 */
+.cp-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.cp { display: grid; gap: 1px; justify-items: center; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--rule); min-width: 64px; font-family: var(--f-mono); }
+.cp.b1 { background: var(--panel); } .cp.b2 { background: var(--tk0); } .cp.b3 { background: var(--fwd-soft); border-color: var(--fwd); } .cp.b4 { background: var(--bwd-soft); border-color: var(--bwd); }
+.cp-ch { font-size: 20px; line-height: 1.2; font-family: var(--f-body); }
+.cp-ord { font-size: 10.5px; color: var(--muted); }
+.cp-bytes { font-size: 11px; }
+.pair-counts { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; min-height: 1.8em; }
+.pc { padding: 2px 8px; border-radius: 4px; background: var(--code); }
+.pc.on { background: var(--bwd-soft); outline: 1px solid var(--bwd); }
+.tokview { font-family: var(--f-mono); font-size: 13px; line-height: 1.9; max-height: 220px; overflow-y: auto; border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; word-break: break-all; }
+.tokview.small { max-height: 120px; }
+.tokview span, .chunks .chunk { border-radius: 3px; padding: 1px 0; }
+.tk0 { background: var(--tk0); } .tk1 { background: var(--tk1); } .tk2 { background: var(--tk2); } .tk3 { background: var(--tk3); } .tk4 { background: var(--tk4); } .tk5 { background: var(--tk5); }
+.merge-list { margin: 0; padding-left: 2.4em; font-size: 12.5px; display: grid; gap: 2px; }
+.merge-list code { background: none; padding: 0; }
+.chunks { display: flex; flex-wrap: wrap; gap: 4px; font-family: var(--f-mono); font-size: 14px; }
+.chunks .chunk { padding: 2px 5px; white-space: pre; }
+.quirks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-top: 10px; }
+.quirk { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; background: var(--panel); font-size: 14px; }
+.quirk b { display: block; font-family: var(--f-display); font-size: 14.5px; margin-bottom: 2px; }
+
+/* 10 */
+.pbar-stack { display: flex; height: 34px; border-radius: 6px; overflow: hidden; border: 1px solid var(--rule); }
+.pseg { display: block; min-width: 2px; transition: flex-grow .5s; }
+.pc1 { background: var(--pc1); } .pc2 { background: var(--pc2); } .pc3 { background: var(--pc3); } .pc4 { background: var(--pc4); } .pc5 { background: var(--pc5); } .pc6 { background: var(--pc6); }
+.plegend { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 4px 18px; font-size: 13px; }
+.pl { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; }
+.pl .sw { width: 12px; height: 12px; border-radius: 3px; }
+.pl b { font-family: var(--f-mono); font-size: 12.5px; }
+.pl .muted { font-family: var(--f-mono); font-size: 11.5px; min-width: 3.5em; text-align: right; }
+.speed { display: grid; gap: 6px; }
+.sp-row { display: grid; grid-template-columns: minmax(0, 11em) minmax(0, 1fr) 5.2em 9em; gap: 10px; align-items: center; font-size: 13.5px; transition: opacity .3s; }
+.sp-row.hide { opacity: .2; }
+.sp-row.on .sp-lab { font-weight: 600; }
+.sp-bar { height: 14px; background: var(--code); border-radius: 3px; overflow: hidden; }
+.sp-bar i { display: block; height: 100%; background: var(--fwd); transition: width .6s; }
+.sp-row.on .sp-bar i { background: var(--bwd); }
+.sp-ms, .sp-tok { font-family: var(--f-mono); font-size: 12.5px; }
+.sp-tok { color: var(--muted); }
+.accum .mb { fill: var(--code); stroke: var(--rule); stroke-width: .5; transition: fill .2s; }
+.accum .mb.on { fill: var(--fwd); fill-opacity: .7; }
+.accum .bucket { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.accum .bucket-fill { fill: var(--bwd); fill-opacity: .55; transition: all .25s; }
+.accum .bucket-fill.synced { fill-opacity: .9; }
+.result .mk { stroke: var(--panel); stroke-width: 2; }
+.result .mk.ours { fill: var(--bwd); } .result .mk.g2 { fill: var(--fwd); } .result .mk.g3 { fill: var(--ok); }
+.result .lab.ours { fill: var(--bwd); font-weight: 600; } .result .lab.g2 { fill: var(--fwd); font-weight: 600; } .result .lab.g3 { fill: var(--ok); font-weight: 600; }
+.result .lead { stroke: var(--rule); }
+
+/* method */
+.method { padding-block: 56px 32px; }
+.method h2 { font-family: var(--f-display); font-size: clamp(1.5rem, 3.4vw, 2.2rem); margin: 0 0 8px; }
+.method > p { max-width: 70ch; margin: 0 0 22px; }
+.moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 28px; margin: 0; padding: 0; list-style: none; counter-reset: m; }
+.moves li { padding: 12px 0 14px; border-top: 1px solid var(--rule); }
+.moves h3 { margin: 0 0 4px; font-family: var(--f-display); font-size: 1.05rem; }
+.moves p { margin: 0; font-size: 14.5px; }
+.moves .refs { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); margin-top: 6px; }
+.threads-wrap { overflow-x: auto; margin-top: 28px; }
+table.threads { border-collapse: collapse; width: 100%; min-width: 680px; font-size: 14px; }
+.threads th, .threads td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.threads th { font-family: var(--f-mono); font-size: 12px; color: var(--muted); font-weight: 400; }
+.threads td:first-child { font-weight: 600; white-space: nowrap; }
+.threads .lec-chip { display: inline-block; font-family: var(--f-mono); font-size: 11.5px; padding: 0 6px; border-radius: 4px; background: var(--code); margin-right: 4px; text-decoration: none; color: var(--ink); }
+footer { padding-block: 26px 48px; color: var(--muted); font-size: 13px; }
+footer p { margin: 4px 0; max-width: 80ch; }
+
+/* responsive */
+@media (max-width: 900px) {
+  .map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mlp-grid, .count-grid, .train-grid, .two-col { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .ledger, .moves { grid-template-columns: minmax(0, 1fr); }
+  .lec-head { grid-template-columns: auto minmax(0, 1fr); }
+  .watch { grid-row: 3; grid-column: 1 / -1; justify-self: start; }
+  .hook, .tl > li, .keep { grid-template-columns: minmax(0, 1fr); }
+  .tl::before, .tl > li::before { display: none; }
+  .tl .ts, .keep .label, .hook .label { text-align: left; padding: 0; }
+  .tl > li { border-left: 2px solid var(--rule); padding-left: 12px; }
+  .tl > li:has(.demo) { border-left-color: var(--fwd); }
+  .lad-row { grid-template-columns: minmax(0, 1fr) 4em; }
+  .lad-row .lad-bar { grid-column: 1 / -1; grid-row: 2; }
+  .lad-note { display: none; }
+  .sp-row { grid-template-columns: minmax(0, 1fr) 5em; }
+  .sp-bar { grid-column: 1 / -1; grid-row: 2; }
+  .sp-tok { display: none; }
+  .slider input { width: 120px; }
+  .nll-row { grid-template-columns: 3.2em 4.6em 4.6em minmax(0, 1fr); gap: 6px; font-size: 12px; }
+  .pipe-arrow { display: none; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hero">
+    <p class="eyebrow">Andrej Karpathy · Neural Networks: Zero to Hero · 10 集 · 19 小时 20 分</p>
+    <h1>从一个会<span class="f">求导</span>的数字，<br>写到复现 GPT-2</h1>
+    <p class="lede">这一页按视频顺序拆开每一集：他先抛出什么问题，按什么顺序引入概念，用了哪些例子和比喻。每一步都标了原视频的时间点，点一下就跳到那一刻。蓝色圆点的步骤带一个可以播放或拖动的小实验，凡是写着“实时”的都在你的浏览器里真算。</p>
+    <div class="legend-row" aria-label="颜色约定">
+      <span><i style="background: var(--fwd)"></i>蓝色 = 前向传播、数据</span>
+      <span><i style="background: var(--bwd)"></i>橙色 = 反向传播、梯度、loss</span>
+    </div>
+    <nav class="map" aria-label="课程地图">
+      <a class="rc" href="#l01"><span class="rc-n">01</span><span class="rc-t">micrograd</span><span class="rc-d">导数 · 链式法则 · 反向传播 · MLP</span></a>
+      <a class="rc" href="#l02"><span class="rc-n">02</span><span class="rc-t">bigram</span><span class="rc-d">计数 · 采样 · 负对数似然 · softmax</span></a>
+      <a class="rc" href="#l03"><span class="rc-n">03</span><span class="rc-t">MLP</span><span class="rc-d">嵌入 · minibatch · 学习率 · 数据切分</span></a>
+      <a class="rc" href="#l04"><span class="rc-n">04</span><span class="rc-t">BatchNorm</span><span class="rc-d">初始化 · 饱和 · Kaiming · BatchNorm</span></a>
+      <a class="rc" href="#l05"><span class="rc-n">05</span><span class="rc-t">手写反向</span><span class="rc-d">张量级梯度 · 广播对偶 · 交叉熵梯度</span></a>
+      <a class="rc" href="#l06"><span class="rc-n">06</span><span class="rc-t">WaveNet</span><span class="rc-d">分层融合 · 张量形状 · 卷积</span></a>
+      <a class="rc" href="#l07"><span class="rc-n">07</span><span class="rc-t">GPT</span><span class="rc-d">自注意力 · 多头 · 残差 · LayerNorm</span></a>
+      <a class="rc" href="#l08"><span class="rc-n">08</span><span class="rc-t">State of GPT</span><span class="rc-d">预训练 · SFT · RLHF · 提示</span></a>
+      <a class="rc" href="#l09"><span class="rc-n">09</span><span class="rc-t">Tokenizer</span><span class="rc-d">UTF-8 · BPE · 正则切块 · 怪现象</span></a>
+      <a class="rc" href="#l10"><span class="rc-n">10</span><span class="rc-t">GPT-2 124M</span><span class="rc-d">权重共享 · 提速 · 学习率调度 · DDP</span></a>
+    </nav>
+    <div class="ledger" id="ledger">
+      <div>
+        <h3>names.txt 上的 val loss</h3>
+        <p>字符级，27 类，均匀乱猜 = 3.30。第 2–6 集一路往下压。</p>
+        <div class="lg-names"></div>
+      </div>
+      <div>
+        <h3>Tiny Shakespeare 上的 val loss</h3>
+        <p>字符级，65 类，均匀乱猜 = 4.17。第 7 集每加一个部件报一次。</p>
+        <div class="lg-shake"></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="rail" aria-label="跳转到某一集">
+  <div class="wrap">
+    <b>Zero to Hero</b>
+    <a href="#l01">01</a><a href="#l02">02</a><a href="#l03">03</a><a href="#l04">04</a><a href="#l05">05</a><a href="#l06">06</a><a href="#l07">07</a><a href="#l08">08</a><a href="#l09">09</a><a href="#l10">10</a><a href="#method">他的教法</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- ============ 01 ============ -->
+<section class="lec" id="l01" data-video="VMj-3S1tku0">
+  <div class="lec-head">
+    <div class="lec-num">01</div>
+    <h2>从一个会求导的数字开始</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=VMj-3S1tku0" target="_blank" rel="noopener">原视频 2:25:52 ↗</a>
+    <p class="lec-en">The spelled-out intro to neural networks and backpropagation: building micrograd</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>神经网络训练在底层到底在做什么？他用自己两年前发布的 micrograd 来讲：一个自动求导（autograd）引擎，核心只有约 100 行 Python，在它上面搭的神经网络库“简单得像个笑话”。他的意思是，训练神经网络需要的数学全在这 100 行里，PyTorch 多出来的部分主要是为了效率。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:08:08</a><div class="tl-body"><h3>先问“导数到底在测什么”，不背公式</h3><p>定义 f(x) = 3x² − 4x + 5，把 x 往前推一个很小的 h，看 f 变了多少，再除以 h。x = 3 时斜率是 14，x = −3 时是 −22，在 x = 2/3 处是 0。他刻意不写求导法则，因为没人真的会对神经网络的表达式手写求导。</p>
+      <figure class="demo" id="d-deriv"><figcaption><span class="tag">可拖动</span>导数 = 轻推输入，看输出变多少</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:14:12</a><div class="tl-body"><h3>多个输入：d = a·b + c</h3><p>分别给 a、b、c 加一点 h，看 d 往哪个方向变、变多少。每个输入都有自己的导数，这就是“梯度”的雏形。</p></div></li>
+    <li><a class="ts">00:19:09</a><div class="tl-body"><h3>写 Value 类，把表达式画成图</h3><p>Value 包住一个数，记住自己是由哪几个 Value、通过什么运算得来的。他用 graphviz 把整个表达式画出来，每个格子显示 data 和 grad。下面的图就是照这个样子画的。</p></div></li>
+    <li><a class="ts">00:32:10</a><div class="tl-body"><h3>手动反向传播：从 L 往回一个个填 grad</h3><p>每填一个梯度，他都用“给输入加 h、重跑前向”的数值方法核对一遍。链式法则用一个比喻讲：汽车比自行车快 2 倍，自行车比人快 4 倍，那汽车比人快 8 倍。</p>
+      <figure class="demo" id="d-graph"><figcaption><span class="tag">动画</span>L = (a·b + c)·f 的前向与反向</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:52:52</a><div class="tl-body"><h3>一个神经元</h3><p>w·x + b，再过 tanh。他手推 tanh 的局部导数 1 − tanh²，然后把同样的反向过程再走一遍。</p>
+      <figure class="demo" id="d-neuron"><figcaption><span class="tag">动画</span>tanh 神经元的反向传播</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:09:02</a><div class="tl-body"><h3>让反向传播自动化</h3><p>每种运算在生成输出时附带一个 <code>_backward</code> 闭包，知道怎么把输出的梯度传回给输入。再对整张图做拓扑排序，倒序逐个调用。</p></div></li>
+    <li><a class="ts">01:22:28</a><div class="tl-body"><h3>现场修 bug：同一个节点被用了两次</h3><p><code>b = a + a</code> 时 a 的梯度应该是 2，代码却给出 1：第二次赋值覆盖了第一次。修法是梯度一律用 <code>+=</code> 累加。这也是“每一步训练前要清零梯度”的根源。</p></div></li>
+    <li><a class="ts">01:27:05</a><div class="tl-body"><h3>把 tanh 拆成 exp 和除法</h3><p>拆成更原子的运算，得到一模一样的梯度。运算粒度可以自己定，只要写得出它的局部导数。</p></div></li>
+    <li><a class="ts">01:39:31</a><div class="tl-body"><h3>在 PyTorch 里做同一件事</h3><p>同样的数字、同样的梯度。PyTorch 把标量换成了张量，数学上没有新东西。</p></div></li>
+    <li><a class="ts">01:43:55</a><div class="tl-body"><h3>Neuron → Layer → MLP，然后训练</h3><p>几十行代码搭出 MLP，造一个 4 个样本的小数据集，用平方误差做 loss，手写梯度下降循环。训练中他发现自己忘了在 backward 之前清零梯度，说这是神经网络最常见的错误之一，然后改掉重跑。</p>
+      <figure class="demo" id="d-mlp"><figcaption><span class="tag">实时</span>用 JS 版 micrograd 训练 MLP(3, [4, 4, 1])</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>神经网络就是一个大数学表达式，loss 是它最后吐出的一个数。</li>
+    <li>梯度 = 把这个输入往上推一点，loss 会变多少。反向传播 = 链式法则 + 拓扑序，每个节点只需要知道自己的局部导数。</li>
+    <li>加号把梯度原样分发，乘号把对方的值乘上来；同一个变量被用多次，梯度要累加。</li>
+    <li>训练循环四步：前向、清零、反向、更新。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 02 ============ -->
+<section class="lec" id="l02" data-video="PaCmpygFfXo">
+  <div class="lec-head">
+    <div class="lec-num">02</div>
+    <h2>先数数，再让神经网络学会同样的数</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=PaCmpygFfXo" target="_blank" rel="noopener">原视频 1:57:45 ↗</a>
+    <p class="lec-en">The spelled-out intro to language modeling: building makemore</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>makemore 就是 make more：给它一堆东西，它造出更多类似的。数据是 names.txt，约 32,000 个名字，目标是生成听起来像名字、但并不存在的新名字。他把它叫做字符级语言模型：每个名字都打包了好几个“下一个字符是什么”的例子，比如以某个字母开头的概率、某个字母后面常跟什么、名字通常在哪里结束。</p></div>
+  <p class="note">本集和下一集的演示都在浏览器里，用页面内置的 <span class="n-names">约 500</span> 个常见英文名实时计算，所以数字和视频里不同，规律是一样的。</p>
+  <ol class="tl">
+    <li><a class="ts">00:06:24</a><div class="tl-body"><h3>只看前一个字符：bigram</h3><p>最简单的语言模型。每个名字前后补一个特殊符号（先是 &lt;S&gt; 和 &lt;E&gt;，后来统一成一个 “.”），然后数每一对相邻字符出现了几次。</p></div></li>
+    <li><a class="ts">00:12:45</a><div class="tl-body"><h3>把计数放进 27×27 的张量，这就是“训练”</h3><p>他说这张表就是训练好的模型：模型的全部参数就是这些计数。</p>
+      <figure class="demo" id="d-count"><figcaption><span class="tag">实时</span>数完所有 bigram</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:24:02</a><div class="tl-body"><h3>从表里采样</h3><p>从 “.” 那一行出发，按概率抽下一个字符，再去那个字符的行继续抽，直到抽回 “.”。他固定了随机数生成器的种子（2147483647），让观众能得到一样的结果。生成的名字比乱猜好一些，但仍然很烂，因为模型只看一个字符。</p>
+      <figure class="demo" id="d-sample"><figcaption><span class="tag">实时</span>一个字符一个字符地采样</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:36:17</a><div class="tl-body"><h3>向量化与广播规则</h3><p>每行除以行和就得到概率。他在这里花了很长时间讲 PyTorch 的 broadcasting 规则：漏写 <code>keepdim=True</code> 代码照样能跑，却悄悄变成按列归一化。他建议大家认真读一遍广播的文档。</p></div></li>
+    <li><a class="ts">00:50:14</a><div class="tl-body"><h3>给模型打分：负对数似然</h3><p>把训练集里每个 bigram 的概率乘起来就是似然。乘积小到没法用，就取 log 相加；log 是负的，再取负；最后取平均。越低越好，整个训练集上是 2.45。</p>
+      <figure class="demo" id="d-nll"><figcaption><span class="tag">可输入</span>算一个名字的平均负对数似然</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:00:50</a><div class="tl-body"><h3>平滑：别让概率等于 0</h3><p>他在自己的名字后加个 q，变成 andrejq。jq 从没出现过，概率是 0，loss 变成无穷大。修法：所有计数先加 1。加得越多，模型越接近均匀分布。</p></div></li>
+    <li><a class="ts">01:02:57</a><div class="tl-body"><h3>第二部分：同一个问题，换成神经网络</h3><p>字符编码成 one-hot，乘一个 27×27 的权重 W 得到 logits，exp 之后按行归一化。这两步就是 softmax。loss 还是同一个负对数似然。</p>
+      <figure class="demo" id="d-onehot"><figcaption><span class="tag">动画</span>one-hot @ W → logits → softmax</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:38:36</a><div class="tl-body"><h3>梯度下降，走到同一个答案</h3><p>用 PyTorch 自动求导训练 W，loss 降到约 2.45，和计数法一样。随后他点破：one-hot 乘 W 就是取出 W 的一行；W.exp() 学出来的正是计数矩阵；给 W 加平方正则项，效果等同于加假计数。</p>
+      <figure class="demo" id="d-bigram-gd"><figcaption><span class="tag">实时</span>梯度下降训练 W，对照计数法</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>语言模型 = 给定上文，输出下一个 token 的概率分布。</li>
+    <li>损失函数 = 平均负对数似然。27 个字符均匀乱猜是 −ln(1/27) ≈ 3.30，后面每一集都会拿这个数做检查。</li>
+    <li>计数法和神经网络在这里是同一个模型。神经网络的好处是能扩展：上下文一长，计数表会爆炸，神经网络不会。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 03 ============ -->
+<section class="lec" id="l03" data-video="TCH_1BHY58I">
+  <div class="lec-head">
+    <div class="lec-num">03</div>
+    <h2>用嵌入向量看更长的上下文</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=TCH_1BHY58I" target="_blank" rel="noopener">原视频 1:15:39 ↗</a>
+    <p class="lec-en">Building makemore Part 2: MLP</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>bigram 只看一个字符，预测很差。想多看几个字符，计数表的大小会随上下文长度指数增长：看 3 个字符就要 27³ ≈ 2 万行，每一行都分不到几个样本。他转向 Bengio 等人 2003 年的论文。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:01:48</a><div class="tl-body"><h3>读论文：把符号嵌入到向量空间</h3><p>论文的词表有 17,000 个词，每个词用一个 30 维向量表示。他复述论文里的例子：训练集里从没出现过 “A dog was running in a ___”，但出现过类似的 “The cat was running in a room”。如果 a 和 the、dog 和 cat 的向量相近，知识就能迁移过去。</p></div></li>
+    <li><a class="ts">00:09:03</a><div class="tl-body"><h3>重建数据集：block_size = 3</h3><p>用 3 个字符预测第 4 个。一个滑动窗口把每个名字展开成好几个样本。</p>
+      <figure class="demo" id="d-window"><figcaption><span class="tag">动画</span>滑动窗口展开 “emma”</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:12:19</a><div class="tl-body"><h3>查表、拼接、隐藏层、输出层</h3><p>27 个字符先嵌入到 2 维（为了能画出来）。中间他停下来讲 torch.Tensor 的内部：底层是一维存储，view 只改形状和步长等元数据，不复制内存。</p>
+      <figure class="demo" id="d-arch"><figcaption><span class="tag">动画</span>一个 batch 在网络里的形状变化</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:37:56</a><div class="tl-body"><h3>先过拟合一个 batch</h3><p>只拿 32 个样本训练，loss 能降到很低但不到 0，因为同一个上下文（比如 “...”）后面跟了不同的字符。先确认网络有能力学，再上全量数据。</p></div></li>
+    <li><a class="ts">00:41:25</a><div class="tl-body"><h3>minibatch</h3><p>每步随机抽 32 个样本算梯度。梯度不精确，但快得多。他的原则：宁可用近似的梯度多走很多步，也比用精确梯度走几步好。</p></div></li>
+    <li><a class="ts">00:45:40</a><div class="tl-body"><h3>学习率不靠猜</h3><p>让学习率在 10⁻³ 到 10⁰ 之间指数增长，每步记录 loss，看谷底在哪。他找到大约 0.1，训练后期再降 10 倍（learning rate decay）。</p></div></li>
+    <li><a class="ts">00:53:20</a><div class="tl-body"><h3>切分 train / dev / test</h3><p>80% / 10% / 10%。模型越大越能把训练集背下来，只有在没见过的数据上评估才可信。test 集要很少碰，否则也会被“调参调过拟合”。</p></div></li>
+    <li><a class="ts">01:00:49</a><div class="tl-body"><h3>做实验、画嵌入、采样</h3><p>加大隐藏层，把嵌入从 2 维加到 10 维，train 降到 2.17、val 2.2，已经比 bigram 的 2.45 好。把 2 维嵌入画出来，元音 a e i o u 聚在一起，说明网络学到它们“可以互换”。</p>
+      <figure class="demo" id="d-train"><figcaption><span class="tag">实时</span>在浏览器里训练一个字符级 MLP</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>嵌入：离散符号 → 可学习的向量。相似的符号会学到相近的向量，这让模型能泛化到没见过的组合。</li>
+    <li>超参数：嵌入维度、隐藏层大小、上下文长度、学习率、batch 大小。调参看 val，不看 train。</li>
+    <li>训练前的固定动作：先过拟合一个小 batch，再做学习率扫描。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 04 ============ -->
+<section class="lec" id="l04" data-video="P6sfmUTpUmc">
+  <div class="lec-head">
+    <div class="lec-num">04</div>
+    <h2>盯住激活值和梯度的统计</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=P6sfmUTpUmc" target="_blank" rel="noopener">原视频 1:55:57 ↗</a>
+    <p class="lec-en">Building makemore Part 3: Activations &amp; Gradients, BatchNorm</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>大家都想赶紧学 RNN、LSTM，他偏要在 MLP 上多停一集。理由：RNN 表达能力很强，但用一阶梯度方法很难优化，原因就藏在训练中激活值和梯度的分布里。不先理解这些，就看不懂后来的架构为什么那样设计。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:04:19</a><div class="tl-body"><h3>第一个问题：初始 loss 是 27</h3><p>刚初始化的网络应该什么都不懂，给 27 个字符差不多的概率，loss 应该约 3.29。实际是 27，说明网络“自信地错了”：某些 logits 特别大。把输出层权重缩小、偏置置 0 就好了，loss 曲线开头的“曲棍球棒”也随之消失，那段时间原本只是在把权重压小。</p></div></li>
+    <li><a class="ts">00:12:59</a><div class="tl-body"><h3>第二个问题：tanh 饱和</h3><p>画出隐藏层输出的直方图，大量值贴在 ±1。tanh 在那里的导数 1 − t² 接近 0，梯度传不过去。再画一张黑白图：如果某个神经元对所有样本都饱和，它就是 dead neuron，永远学不动。</p>
+      <figure class="demo" id="d-init"><figcaption><span class="tag">实时</span>两种初始化：初始 loss、tanh 分布、训练曲线</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:27:53</a><div class="tl-body"><h3>魔法数字从哪来：Kaiming 初始化</h3><p>上一步的缩放系数是手调的。他推导：要让输出的方差保持为 1，权重要除以 √fan_in；遇到 tanh 这种会把数据往里挤的非线性，还要乘一个增益，tanh 的增益是 5/3。他又演示了没有非线性的情况：纯线性网络里增益 1 就刚好。</p>
+      <figure class="demo" id="d-stack"><figcaption><span class="tag">实时</span>5 层 tanh 网络的激活与梯度直方图</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:40:40</a><div class="tl-body"><h3>BatchNorm：干脆直接标准化</h3><p>既然希望每层的 pre-activation 接近单位高斯，那就在训练时用 batch 的均值和标准差把它标准化，再加上可学习的缩放和平移。它把同一个 batch 里的样本耦合在了一起，带来抖动和正则化效果，也带来很多麻烦。他说没人喜欢这一层，但它确实让深网络好训练多了。</p>
+      <figure class="demo" id="d-bn"><figcaption><span class="tag">动画</span>一个神经元在一个 batch 上经过 BatchNorm</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:04:50</a><div class="tl-body"><h3>读 ResNet-50 的代码</h3><p>卷积 → BatchNorm → ReLU 的重复结构到处都是。卷积层不带偏置，因为 BatchNorm 会把它减掉，加了也白加。</p></div></li>
+    <li><a class="ts">01:18:35</a><div class="tl-body"><h3>“开玩笑的，还有第二部分”</h3><p>把代码重构成 Linear、BatchNorm1d、Tanh 类，接口模仿 torch.nn。堆 5 层，看四张诊断图：前向激活直方图、反向梯度直方图、参数梯度分布、更新量和参数的比值随时间的变化。他说更新量约为参数的千分之一（log10 约 −3）比较健康。</p>
+      <figure class="demo" id="d-ratio"><figcaption><span class="tag">实时</span>update : data 比值</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>初始化的目标：让每一层的激活和梯度都保持差不多的尺度。</li>
+    <li>先算期望的初始 loss。看到 27 而不是 3.3，就知道哪里错了。</li>
+    <li>BatchNorm 让深网络对初始化没那么敏感。第 7 集的 LayerNorm 是同一个想法，只是换了归一化的方向。</li>
+    <li>训练时多画图：饱和比例、梯度分布、更新量与参数之比。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 05 ============ -->
+<section class="lec" id="l05" data-video="q8SA3rM6ckI">
+  <div class="lec-head">
+    <div class="lec-num">05</div>
+    <h2>删掉 loss.backward()，自己写</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=q8SA3rM6ckI" target="_blank" rel="noopener">原视频 1:55:24 ↗</a>
+    <p class="lec-en">Building makemore Part 4: Becoming a Backprop Ninja</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>他想删掉 <code>loss.backward()</code> 这一行，在张量层面把反向传播完整手写一遍。理由来自他的一篇博客：反向传播是一个“有漏洞的抽象”（leaky abstraction）。不能把可微分的积木随便堆起来就指望它工作，梯度会饱和、消失、爆炸，不理解内部就没法调。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:00:00</a><div class="tl-body"><h3>一点历史</h3><p>2006 年 Hinton 和 Salakhutdinov 发表在 Science 上的论文，梯度是手写的。2010 年前后他自己写的受限玻尔兹曼机代码用 MATLAB，也是手写梯度。2014 年他的 Deep Fragment Embeddings 论文同样手推梯度并做了梯度检查。他的感慨：以前大家都手写反向传播，现在只调 <code>loss.backward()</code>，丢掉了一些东西。</p></div></li>
+    <li><a class="ts">00:13:01</a><div class="tl-body"><h3>练习 1：一行一行往回推</h3><p>前向被拆成 20 来行最原子的操作，包括 BatchNorm 的每一个小步骤。然后从 loss 开始逐行往回，求出每个中间变量的梯度，每一步都用 <code>cmp()</code> 和 PyTorch 的结果比对。</p>
+      <figure class="demo" id="d-ninja"><figcaption><span class="tag">动画</span>从最后一行往上，逐行写出梯度</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:24:40</a><div class="tl-body"><h3>形状就是线索：求和与广播的对偶</h3><p>前向里一个 [32,1] 的变量被广播到 [32,27]，说明它被复用了，反向就要沿那一维求和；前向求和，反向就广播回去。矩阵乘法的反向也不用背，按形状把转置和乘法拼对就行。</p>
+      <figure class="demo" id="d-dual"><figcaption><span class="tag">动画</span>前向 sum ↔ 反向 broadcast</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:05:17</a><div class="tl-body"><h3>插曲：Bessel 校正</h3><p>BatchNorm 论文训练时用除以 n 的有偏方差，推理时用除以 n−1 的无偏方差。他觉得这种训练和推理不一致本身就是个 bug，所以统一用 n−1。</p></div></li>
+    <li><a class="ts">01:26:31</a><div class="tl-body"><h3>练习 2：交叉熵一次求完</h3><p>不再逐行推，直接对 softmax + 负对数似然整体求导，结果非常简洁：<code>dlogits = softmax(logits) − one_hot(y)</code>，再除以 n。他给的直观解释是一组力：错误字符的概率被往下拉，正确字符被往上推，一行加起来为 0。</p>
+      <figure class="demo" id="d-ce"><figcaption><span class="tag">可点击</span>交叉熵的梯度是一组拉力和推力</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:36:37</a><div class="tl-body"><h3>练习 3：BatchNorm 一次求完</h3><p>在纸上推出 BatchNorm 反向的完整公式，压成一行代码：<code>dhprebn = bngain*bnvar_inv/n * (n*dhpreact − dhpreact.sum(0) − n/(n−1)*bnraw*(dhpreact*bnraw).sum(0))</code>。</p></div></li>
+    <li><a class="ts">01:50:02</a><div class="tl-body"><h3>练习 4：全部拼起来</h3><p>完全不用 <code>loss.backward()</code>，用手写梯度训练整个 MLP，结果和自动求导一样。本页第 3、4 集的训练演示也是这样写的：浏览器里没有 PyTorch，梯度都是手写的。</p></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>反向传播的每一步都是“上游梯度 × 局部导数”，变量被复用就累加。</li>
+    <li>先看形状：梯度的形状一定和变量本身相同，这能帮你拼出大部分公式。</li>
+    <li>交叉熵的梯度 = 预测概率 − 真实标签。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 06 ============ -->
+<section class="lec" id="l06" data-video="t3YJ5hKiMQ0">
+  <div class="lec-head">
+    <div class="lec-num">06</div>
+    <h2>让上下文一层层融合</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=t3YJ5hKiMQ0" target="_blank" rel="noopener">原视频 0:56:21 ↗</a>
+    <p class="lec-en">Building makemore Part 5: Building a WaveNet</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>这一集在京都的酒店房间录。目标：输入从 3 个字符扩到 8 个，但不要一次全塞进一个隐藏层，那样“太快地挤压了太多信息”。他要做的结构很像 DeepMind 2016 年的 WaveNet，那篇论文本来是用来生成音频的。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:06:56</a><div class="tl-body"><h3>先把 loss 曲线画清楚</h3><p>单步 loss 噪声太大，把每 1000 步取平均再画，曲线清楚多了，学习率衰减那一下的效果也看得出来。</p></div></li>
+    <li><a class="ts">00:09:16</a><div class="tl-body"><h3>继续 PyTorch 化</h3><p>加 Embedding、Flatten 和 Sequential 容器，训练代码缩到几行。顺带讲了几个因为 BatchNorm 训练/推理模式没切换导致的 bug。</p></div></li>
+    <li><a class="ts">00:19:33</a><div class="tl-body"><h3>最简单的改动：上下文 3 → 8</h3><p>只改 block_size，val loss 从 2.10 降到 2.02。</p></div></li>
+    <li><a class="ts">00:21:36</a><div class="tl-body"><h3>实现分层融合</h3><p>新写一个 FlattenConsecutive：相邻两个字符先融合，再两两融合，三层后看到全部 8 个字符。关键观察：PyTorch 的矩阵乘只作用于最后一维，前面所有维度都被当成 batch，所以这棵树可以一次性算完。</p>
+      <figure class="demo" id="d-wavenet"><figcaption><span class="tag">动画</span>扁平 vs 分层</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:38:50</a><div class="tl-body"><h3>抓 bug：BatchNorm1d 收到了三维输入</h3><p>代码能跑，结果不对。他是从 running_mean 的形状不对发现的。</p>
+      <figure class="demo" id="d-bnbug"><figcaption><span class="tag">动画</span>统计量该沿哪些维度算</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:46:07</a><div class="tl-body"><h3>放大</h3><p>约 76,000 个参数，val loss 1.993，第一次跌破 2.0。代价是训练明显变慢。</p>
+      <figure class="demo" id="d-wlog"><figcaption><span class="tag">数据</span>这一集的 val loss 记录</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:47:44</a><div class="tl-body"><h3>dilated causal convolution 只是实现细节</h3><p>论文里吓人的名字，本质是把这棵树沿序列滑动的 for 循环搬进 CUDA kernel，同时复用相邻位置共享的中间节点。模型本身和他写的是一回事。</p>
+      <figure class="demo" id="d-conv"><figcaption><span class="tag">动画</span>同一棵树沿序列滑动</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:52:28</a><div class="tl-body"><h3>真实的开发流程</h3><p>大量时间花在读文档、对张量形状上；先在 notebook 里试，再搬回仓库代码。他也承认这一集缺少实验框架：没有系统的超参搜索，只是凭感觉调。</p></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>架构设计的一个原则：信息逐层融合，不要过早压缩。</li>
+    <li>每加一点复杂度都和 baseline 比，并控制参数量相同，才知道改动本身有没有用。</li>
+    <li>三维张量过 BatchNorm 时，要想清楚统计量沿哪些维度算。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 07 ============ -->
+<section class="lec" id="l07" data-video="kCc8FmEb1nY">
+  <div class="lec-head">
+    <div class="lec-num">07</div>
+    <h2>自注意力：让 token 互相交流</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=kCc8FmEb1nY" target="_blank" rel="noopener">原视频 1:56:20 ↗</a>
+    <p class="lec-en">Let's build GPT: from scratch, in code, spelled out.</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>他让 ChatGPT 写一首俳句，同一个提示两次生成的结果不同：它是一个概率系统，从左到右逐个生成 token。它背后是 2017 年论文 Attention Is All You Need 提出的 Transformer。从零训练 ChatGPT 做不到，但可以在 1MB 的 Tiny Shakespeare 上从零写一个字符级 Transformer，也就是他的 nanoGPT 的简化版。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:09:28</a><div class="tl-body"><h3>tokenizer 与 train / val 切分</h3><p>字符级：65 种字符各对应一个整数。他提到 Google 的 SentencePiece、OpenAI 的 tiktoken 用的是子词：词表更大，序列更短。这里为了简单用字符。前 90% 做训练，后 10% 做验证。</p></div></li>
+    <li><a class="ts">00:14:27</a><div class="tl-body"><h3>一块数据里藏着 8 个样本</h3><p>随机截一段长度为 block_size + 1 的文本，输入和目标错开一位。上下文长度从 1 到 8 的样本都在里面，这样模型推理时也能从很短的上下文开始生成。</p>
+      <figure class="demo" id="d-loader"><figcaption><span class="tag">动画</span>“First Cit” 拆出 8 个训练样本</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:22:11</a><div class="tl-body"><h3>最简单的基线：bigram</h3><p>一个 <code>nn.Embedding(65, 65)</code> 直接查出下一个字符的 logits。训练后 loss 约 2.5，生成的文字有莎士比亚的“形状”，内容全是胡话。</p></div></li>
+    <li><a class="ts">00:42:13</a><div class="tl-body"><h3>数学技巧：用矩阵乘法做加权平均</h3><p>想让每个 token 和它之前的 token 交流，最弱的方式是取平均。他连写三个版本：for 循环、下三角矩阵乘法、masked_fill 加 softmax，结果完全一样。第三个版本已经是 attention 的形状。</p>
+      <figure class="demo" id="d-trick"><figcaption><span class="tag">动画</span>同一个平均的四种写法</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:02:00</a><div class="tl-body"><h3>视频的核心：self-attention</h3><p>平均是一视同仁，但不同 token 对过去的兴趣不同，他举的例子是元音可能在找前面的辅音。每个 token 发出两个向量：query（我在找什么）和 key（我有什么），两者点积就是亲和度。还有 value：如果你对我感兴趣，我告诉你这个。</p>
+      <figure class="demo" id="d-attn"><figcaption><span class="tag">可点击</span>点一个字符，看它在注意谁（手工设定的 q/k，用来演示）</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:11:38</a><div class="tl-body"><h3>关于 attention 的 6 条笔记</h3><p>① 它是有向图上的通信机制；② 它没有空间概念，只是在一组向量上操作，所以要另加位置编码；③ batch 里不同样本之间不通信；④ encoder 不加三角 mask，decoder 加；⑤ self-attention 和 cross-attention 的区别只在 key、value 从哪来；⑥ 要除以 √head_size。</p>
+      <figure class="demo" id="d-scale"><figcaption><span class="tag">可拖动</span>为什么要除以 √head_size</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:21:59</a><div class="tl-body"><h3>搭出完整的 Transformer 块</h3><p>多头注意力 → 前馈层 → 残差连接 → LayerNorm，每加一个部件报一次 val loss。前馈层的隐藏维度照论文放大 4 倍。</p>
+      <figure class="demo" id="d-block"><figcaption><span class="tag">动画</span>先通信，再计算；梯度走高速公路</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:37:49</a><div class="tl-body"><h3>放大</h3><p>384 维、6 个头、6 层、上下文 256、dropout 0.2，在 A100 上训练约 15 分钟，val loss 1.48。生成的文字已经很像莎士比亚的格式，只是读不通。</p>
+      <figure class="demo" id="d-glog"><figcaption><span class="tag">数据</span>每加一个部件，loss 降多少</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:42:39</a><div class="tl-body"><h3>我们写的是 decoder-only</h3><p>原论文是 encoder-decoder，用于机器翻译：encoder 读法语，decoder 通过 cross-attention 读 encoder 的输出。GPT 只有 decoder，所以没有 cross-attention。</p></div></li>
+    <li><a class="ts">01:48:53</a><div class="tl-body"><h3>回到 ChatGPT</h3><p>我们做的只是预训练。ChatGPT 还要经过监督微调、奖励模型、PPO 强化学习，这些数据不公开。下一个视频（第 8 集）讲这条流水线。</p></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>attention = 由数据决定权重的加权平均。mask 决定能看谁，softmax 保证权重和为 1。</li>
+    <li>self-attention 里 Q、K、V 都来自同一个 x；它本身不知道顺序，位置编码要另外加。</li>
+    <li>Transformer 块 = 通信（attention）+ 计算（MLP），残差和 LayerNorm 让深网络能训练。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 08 ============ -->
+<section class="lec" id="l08" data-video="bZQun8Y4L2A">
+  <div class="lec-head">
+    <div class="lec-num">08</div>
+    <h2>GPT 助手怎么炼成，又该怎么用</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=bZQun8Y4L2A" target="_blank" rel="noopener">原视频 0:42:40 ↗</a>
+    <p class="lec-en">State of GPT · Microsoft Build 2023</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>这是他 2023 年在微软 Build 大会上的演讲，不写代码。上半场讲 GPT 助手的训练流程，下半场讲怎么把它用好。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:00:46</a><div class="tl-body"><h3>四个阶段</h3><p>预训练 → 监督微调 → 奖励建模 → 强化学习，前一阶段的产出是后一阶段的起点。</p>
+      <figure class="demo" id="d-pipe"><figcaption><span class="tag">动画</span>GPT 助手的训练配方</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:02:20</a><div class="tl-body"><h3>预训练的规模</h3><p>数据混合、tokenization、超参。他拿 LLaMA 65B 和 GPT-3 175B 比：参数少得多，却更强，因为训练了 1.4 万亿 token，而不是 3000 亿。他的原话：不要只看参数量判断模型的能力。</p></div></li>
+    <li><a class="ts">00:09:09</a><div class="tl-body"><h3>基座模型不是助手</h3><p>它只想补全文档。GPT-2 时代人们发现，把任务排成一篇“假文档”（few-shot：问答、问答、问答，最后只给问题）就能骗它答题。</p></div></li>
+    <li><a class="ts">00:17:43</a><div class="tl-body"><h3>为什么 RLHF 有效</h3><p>评判比生成容易：让承包商写一首关于回形针的俳句很难，但从几首里挑出好的很容易。代价是 RLHF 模型的熵变低，输出更单一。</p></div></li>
+    <li><a class="ts">00:20:26</a><div class="tl-body"><h3>你的大脑 vs 它的“大脑”</h3><p>他用一个例子：你写 “California’s population is 53 times that of Alaska” 这句话之前，脑子里发生了一大串事情。GPT 只看到最终的 token 序列，每个 token 分到的计算量都一样。</p>
+      <figure class="demo" id="d-think"><figcaption><span class="tag">动画</span>内心独白在训练数据里被删掉了</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:24:45</a><div class="tl-body"><h3>Transformer 需要 token 来思考</h3><p>不能指望它在一个 token 里做完复杂推理。办法：让它一步一步写出过程，多采样几次挑好的，让它检查自己是否完成了任务，用 Tree of Thought 这类搜索。他把这些统称为给 LLM 补上 System 2。</p>
+      <figure class="demo" id="d-tokens"><figcaption><span class="tag">切换</span>把推理摊到更多 token 上</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:30:02</a><div class="tl-body"><h3>LLM 不想成功，它只想模仿</h3><p>训练数据里好答案、烂答案都有，它默认全都模仿。所以要明确要求高质量：“让我们一步步推理，确保答案正确”，“你是这个领域的顶尖专家”。但别要 IQ 400，那会跑出训练分布，甚至跑进科幻小说里。</p></div></li>
+    <li><a class="ts">00:31:59</a><div class="tl-body"><h3>工具、检索、约束、微调</h3><p>告诉它自己不擅长心算，去用计算器、代码解释器；把相关文档检索出来放进上下文（它的工作记忆）；用约束采样强制输出 JSON；LoRA 等方法让微调变得可行。但 RLHF 仍是研究领域，他不建议自己做。</p></div></li>
+    <li><a class="ts">00:37:11</a><div class="tl-body"><h3>他的默认建议</h3><p>先追求最好的效果：用最强的模型（当时是 GPT-4），写详细的提示，给示例，加检索和工具；之后再优化成本。用在低风险场景，保留人工监督，把它当副驾驶，而不是自主代理。</p></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>预训练占约 99% 的算力，产出的是文档补全器；后面三个阶段把它调成助手。</li>
+    <li>每个 token 的计算量是固定的，难的推理需要更多 token。</li>
+    <li>提示工程很大程度上是在弥补人脑和 Transformer 之间的认知差异。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 09 ============ -->
+<section class="lec" id="l09" data-video="zduSFxRajkE">
+  <div class="lec-head">
+    <div class="lec-num">09</div>
+    <h2>Tokenizer：很多怪毛病的源头</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=zduSFxRajkE" target="_blank" rel="noopener">原视频 2:13:34 ↗</a>
+    <p class="lec-en">Let's build the GPT Tokenizer</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>他说 tokenization 是他最不喜欢的部分，但绕不开：LLM 拼不对单词、算不好算术、处理非英语更差、问到 “SolidGoldMagikarp” 就开始胡言乱语、提示末尾多一个空格就收到警告，这些毛病大多能追到 tokenization 上。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:05:50</a><div class="tl-body"><h3>在 tiktokenizer 网页里看例子</h3><p>“egg” 在句首、句中、首字母大写时是不同的 token；数字有时是一个 token，有时被拆开；韩语、中文要用更多 token；GPT-2 把 Python 缩进里的每个空格单独算一个 token，浪费上下文，GPT-4 的分词器把空格合并了。</p></div></li>
+    <li><a class="ts">00:14:56</a><div class="tl-body"><h3>字符串、Unicode、UTF-8</h3><p>Python 字符串是 Unicode 码点的序列。码点有约 15 万个而且还在增加，不适合直接当词表。UTF-8 把每个码点编成 1 到 4 个字节，对 ASCII 最省，所以选它。</p>
+      <figure class="demo" id="d-utf8"><figcaption><span class="tag">可输入</span>字符 → 码点 → UTF-8 字节</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:22:47</a><div class="tl-body"><h3>幻想：干脆不要 tokenizer</h3><p>直接喂字节，词表只有 256，但序列太长，注意力的上下文很快用完。他希望将来能做到，眼下需要压缩。</p></div></li>
+    <li><a class="ts">00:23:50</a><div class="tl-body"><h3>BPE：反复合并最常见的相邻对</h3><p>先用维基百科上的例子 aaabdaaabac 手算一遍，再写代码：get_stats 数相邻对，merge 替换，while 循环一直合并到想要的词表大小。</p>
+      <figure class="demo" id="d-bpe-toy"><figcaption><span class="tag">动画</span>aaabdaaabac → XdXac</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:39:20</a><div class="tl-body"><h3>tokenizer 是完全独立的一个阶段</h3><p>它有自己的训练集，训练完就冻结，LLM 只看到 token id。tokenizer 的训练数据里某种语言越多，那种语言的合并就越多，用的 token 就越少。</p>
+      <figure class="demo" id="d-bpe"><figcaption><span class="tag">实时</span>在一段文本上训练字节级 BPE</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">00:57:36</a><div class="tl-body"><h3>GPT-2 的正则：合并不跨类别</h3><p>OpenAI 先用正则把文本切块，字母、数字、标点、空白分开，BPE 只在块内合并。不然 “dog.” “dog!” “dog?” 会各自占一个词表位置。</p>
+      <figure class="demo" id="d-regex"><figcaption><span class="tag">可输入</span>GPT-2 和 GPT-4 的切块正则</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:18:26</a><div class="tl-body"><h3>特殊 token 与词表大小</h3><p>GPT-2 的词表 50,257 = 256 个字节 + 50,000 次合并 + 1 个 &lt;|endoftext|&gt;。词表太大，嵌入层和输出层变大，每个 token 被训练到的次数变少；太小，序列变长。</p></div></li>
+    <li><a class="ts">01:28:42</a><div class="tl-body"><h3>SentencePiece（Llama 2 在用）</h3><p>它在码点上做 BPE，罕见码点退回字节（byte fallback）。他觉得它配置项太多、历史包袱重，但很多开源模型在用，所以要会。</p></div></li>
+    <li><a class="ts">01:51:41</a><div class="tl-body"><h3>回头解释那些怪毛病</h3>
+      <div class="quirks">
+        <div class="quirk"><b>拼写和数字母</b>“.DefaultCellStyle” 在 GPT-4 里是一个 token，模型看不到里面的字母。</div>
+        <div class="quirk"><b>非英语更差</b>tokenizer 训练数据以英语为主，同样意思的韩语、中文要更多 token，上下文更快用完。</div>
+        <div class="quirk"><b>算术</b>数字被任意切分，同样四位数可能是一个 token，也可能被拆成两段，位数对不齐。</div>
+        <div class="quirk"><b>GPT-2 写 Python</b>每个缩进空格单独一个 token，上下文被大量浪费。</div>
+        <div class="quirk"><b>末尾空格警告</b>训练数据里空格通常和后面的词粘在一起（“␠egg”），提示以空格结尾时，模型落在一个很少见的状态。</div>
+        <div class="quirk"><b>SolidGoldMagikarp</b>一个 Reddit 用户名，在 tokenizer 的训练数据里频繁出现，被合并成一个 token；但 LLM 的训练数据里几乎没有它，这个 token 的嵌入从没被训练过，一用就出怪事。</div>
+        <div class="quirk"><b>YAML 比 JSON 省</b>他的例子里同样的数据，JSON 用 116 个 token，YAML 用 99 个。</div>
+      </div></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>LLM 看到的是 token id，不是字符。很多“它连这都不会”的问题，是因为它根本看不到你以为它看到的东西。</li>
+    <li>BPE = 在 UTF-8 字节上反复合并最常见的相邻对。</li>
+    <li>tokenizer 和模型分开训练，它的训练数据决定了哪种语言、哪种格式更“便宜”。</li>
+  </ul></div>
+</section>
+
+<!-- ============ 10 ============ -->
+<section class="lec" id="l10" data-video="l8pRSuU81PU">
+  <div class="lec-head">
+    <div class="lec-num">10</div>
+    <h2>复现 GPT-2 (124M)</h2>
+    <a class="watch" href="https://www.youtube.com/watch?v=l8pRSuU81PU" target="_blank" rel="noopener">原视频 4:01:26 ↗</a>
+    <p class="lec-en">Let's reproduce GPT-2 (124M)</p>
+  </div>
+  <div class="hook"><span class="label">开场的问题</span><p>2019 年 OpenAI 发布 GPT-2 时，训练它是个大工程。他说今天在云上租一台机器，大约一小时、10 美元左右就能复现 124M 的版本。这一集 4 小时，分四部分：搭模型、让它变快、照论文设超参、看结果。</p></div>
+  <ol class="tl">
+    <li><a class="ts">00:03:39</a><div class="tl-body"><h3>先看 OpenAI 的权重</h3><p>用 HuggingFace 加载 GPT-2，打印每个张量的形状：词嵌入 50257×768，位置嵌入 1024×768。把位置嵌入画出来，能看到正弦、余弦状的曲线，这是训练学出来的，不是写死的。</p></div></li>
+    <li><a class="ts">00:13:47</a><div class="tl-body"><h3>照着权重的名字写自己的 GPT</h3><p>结构和第 7 集基本一样，区别是 LayerNorm 前置、激活函数换成 GELU。他把 attention 比作 reduce（在 token 之间汇总信息），MLP 比作 map（每个 token 各自处理），Transformer 就是反复的 map-reduce。加载 OpenAI 的权重后生成的句子通顺，说明实现对了。</p></div></li>
+    <li><a class="ts">00:45:50</a><div class="tl-body"><h3>开始训练：先检查初始 loss</h3><p>50,257 类均匀分布的 loss 应为 −ln(1/50257) ≈ 10.82，实测约 11，对得上。然后先过拟合一个 batch。</p></div></li>
+    <li><a class="ts">01:06:14</a><div class="tl-body"><h3>共享 wte 和 lm_head</h3><p>GPT-2 原版的做法：输入嵌入和输出层用同一个矩阵。</p>
+      <figure class="demo" id="d-params"><figcaption><span class="tag">可切换</span>124M 参数都在哪</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">01:13:47</a><div class="tl-body"><h3>初始化</h3><p>照 GPT-2 的源码，标准差用 0.02。残差路径上的投影层再乘 1/√(2·层数)：每层都往残差流里加两次东西，不缩放的话方差会越加越大。他用一个小实验演示了这种增长。</p></div></li>
+    <li><a class="ts">01:22:18</a><div class="tl-body"><h3>第二部分：让它变快</h3><p>从每步 1000 毫秒降到 90 毫秒。</p>
+      <figure class="demo" id="d-speed"><figcaption><span class="tag">动画</span>每一项优化省了多少时间</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">02:14:55</a><div class="tl-body"><h3>第三部分：照 GPT-3 论文设超参</h3><p>GPT-2 论文的训练细节写得很少，他转而参考架构相近、写得更详细的 GPT-3 论文：AdamW、梯度裁剪、学习率预热加余弦衰减、weight decay 只作用于二维参数。</p>
+      <figure class="demo" id="d-lr"><figcaption><span class="tag">可拖动</span>学习率调度</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">02:34:09</a><div class="tl-body"><h3>梯度累积与多卡训练</h3><p>0.5M token 的 batch 一张卡放不下，就分多次累积；8 张卡用 DDP 并行。</p>
+      <figure class="demo" id="d-accum"><figcaption><span class="tag">动画</span>凑够 524,288 个 token 再更新一次</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">03:10:21</a><div class="tl-body"><h3>数据与评测</h3><p>训练数据用 HuggingFace 的 FineWeb-Edu（教育类网页）的 100 亿 token 样本；留出验证集；用 HellaSwag 做评测，这是一个四选一的常识补全题库。</p></div></li>
+    <li><a class="ts">03:43:05</a><div class="tl-body"><h3>第四部分：第二天早上看结果</h3><p>在 FineWeb-Edu 的验证集上 loss 低于 OpenAI 的 GPT-2 124M，HellaSwag 也超过了它。</p>
+      <figure class="demo" id="d-result"><figcaption><span class="tag">数据</span>用十分之一的 token 追上 GPT-2</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure></div></li>
+    <li><a class="ts">03:56:21</a><div class="tl-body"><h3>llm.c</h3><p>他的另一个项目：用纯 C/CUDA 写同样的训练，不依赖 PyTorch，跑得更快。</p></div></li>
+  </ol>
+  <div class="keep"><span class="label">带走</span><ul>
+    <li>复现一个模型的顺序：先对齐结构和权重，确认能生成合理文本，再从头训练。</li>
+    <li>速度主要卡在内存搬运，而不是计算。降精度、编译、算子融合、FlashAttention、凑整齐的数字，都在减少内存读写。</li>
+    <li>论文没写清楚的细节，就去读它的源码，或者参考写得更详细的相近论文。</li>
+  </ul></div>
+</section>
+
+</main>
+
+<section class="method" id="method">
+  <div class="wrap">
+    <h2>他的教法</h2>
+    <p>把 10 集放在一起看，他引入每个概念的方式很一致。下面这些套路在整个系列里反复出现，右下角标着出现在哪几集。</p>
+    <ul class="moves">
+      <li><h3>从空白 notebook 写起</h3><p>不调现成的库，直到自己写过一遍。micrograd、makemore、nanoGPT 都是从第一行写起，标题里反复出现的 spelled-out 就是这个意思。</p><p class="refs">01 · 02 · 03 · 07 · 10</p></li>
+      <li><h3>先算一个具体的数，再讲公式</h3><p>导数先用 h 数值地算；每个手推梯度都用数值导数核对；训练前先算出期望的初始 loss（3.29、10.82），对不上就说明有问题。</p><p class="refs">01 · 04 · 05 · 10</p></li>
+      <li><h3>从最笨的基线开始，一次只加一样</h3><p>计数版 bigram → 神经网络 bigram；for 循环求平均 → 矩阵乘 → attention；扁平 MLP → 分层融合。每加一个部件就报一次 val loss。</p><p class="refs">02 · 06 · 07</p></li>
+      <li><h3>同一个结果，用两种方法得到</h3><p>计数法和梯度下降都得到 2.45；手写梯度和 PyTorch 逐个比对；三种写法算出同一个平均。两条路对上了，才说明理解对了。</p><p class="refs">02 · 05 · 07</p></li>
+      <li><h3>先过拟合一个 batch</h3><p>在 32 个样本或单个 batch 上把 loss 压下去，确认网络有能力学，再上全量数据。</p><p class="refs">03 · 10</p></li>
+      <li><h3>看图，而不是只看 loss</h3><p>tanh 输出直方图、dead neuron 黑白图、梯度分布、update:data 比值、学习率扫描曲线、嵌入散点图。</p><p class="refs">03 · 04 · 06</p></li>
+      <li><h3>手写完再“PyTorch 化”</h3><p>先写出能跑的版本，再重构成 Linear、BatchNorm1d、Sequential 这些模块，并对照 torch.nn 的接口，让人看清框架替你做了什么。</p><p class="refs">04 · 06 · 07</p></li>
+      <li><h3>对着论文写代码</h3><p>Bengio 2003、Kaiming 初始化、BatchNorm、ResNet、WaveNet、Attention Is All You Need、GPT-2 和 GPT-3、FlashAttention，都是读一段、写一段。论文没写的细节去翻源码。</p><p class="refs">03 · 04 · 06 · 07 · 10</p></li>
+      <li><h3>把 bug 留在视频里</h3><p>a + a 时梯度被覆盖、忘了清零梯度、BatchNorm1d 维度错了、梯度累积时 loss 没除以步数。每一个都现场解释为什么会错。</p><p class="refs">01 · 06 · 10</p></li>
+      <li><h3>用一句比喻把概念钉住</h3><p>汽车、自行车和人（链式法则）；加号是路由器；梯度高速公路；先通信再计算；“我在找什么 / 我有什么”；Transformer 需要 token 来思考；LLM 只想模仿。</p><p class="refs">01 · 07 · 08</p></li>
+    </ul>
+
+    <div class="threads-wrap">
+      <table class="threads">
+        <thead><tr><th>概念</th><th>第一次出现</th><th>之后在哪里又用到</th></tr></thead>
+        <tbody>
+          <tr><td>链式法则 / 反向传播</td><td><a class="lec-chip" href="#l01">01</a>标量级，手算再自动化</td><td><a class="lec-chip" href="#l05">05</a>张量级全部手写　<a class="lec-chip" href="#l07">07</a>残差连接 = 梯度高速公路</td></tr>
+          <tr><td>负对数似然 / 交叉熵</td><td><a class="lec-chip" href="#l02">02</a>给 bigram 打分，2.45</td><td><a class="lec-chip" href="#l03">03</a>F.cross_entropy　<a class="lec-chip" href="#l05">05</a>dlogits = p − y　<a class="lec-chip" href="#l10">10</a>初始 loss 10.82</td></tr>
+          <tr><td>softmax</td><td><a class="lec-chip" href="#l02">02</a>logits → 概率</td><td><a class="lec-chip" href="#l07">07</a>注意力权重，要除以 √d　<a class="lec-chip" href="#l10">10</a>FlashAttention 的 online softmax</td></tr>
+          <tr><td>嵌入表</td><td><a class="lec-chip" href="#l03">03</a>字符 → 2 维向量 C</td><td><a class="lec-chip" href="#l07">07</a>token 嵌入 + 位置嵌入　<a class="lec-chip" href="#l10">10</a>wte 与 lm_head 共享</td></tr>
+          <tr><td>初始化</td><td><a class="lec-chip" href="#l04">04</a>Kaiming，tanh 增益 5/3</td><td><a class="lec-chip" href="#l10">10</a>std 0.02，残差投影乘 1/√(2·层数)</td></tr>
+          <tr><td>归一化层</td><td><a class="lec-chip" href="#l04">04</a>BatchNorm</td><td><a class="lec-chip" href="#l05">05</a>手写它的反向　<a class="lec-chip" href="#l06">06</a>三维输入的维度 bug　<a class="lec-chip" href="#l07">07</a>LayerNorm（pre-norm）</td></tr>
+          <tr><td>残差连接</td><td><a class="lec-chip" href="#l04">04</a>读 ResNet-50</td><td><a class="lec-chip" href="#l07">07</a>Transformer 块　<a class="lec-chip" href="#l10">10</a>残差缩放初始化</td></tr>
+          <tr><td>学习率与 batch</td><td><a class="lec-chip" href="#l03">03</a>minibatch、学习率扫描、衰减</td><td><a class="lec-chip" href="#l04">04</a>update:data 比值　<a class="lec-chip" href="#l10">10</a>预热 + 余弦、梯度累积到 0.5M token</td></tr>
+          <tr><td>tokenization</td><td><a class="lec-chip" href="#l07">07</a>字符级，65 个</td><td><a class="lec-chip" href="#l08">08</a>预训练数据　<a class="lec-chip" href="#l09">09</a>BPE　<a class="lec-chip" href="#l10">10</a>50257 → 50304</td></tr>
+          <tr><td>训练流水线</td><td><a class="lec-chip" href="#l07">07</a>结尾提到预训练与微调</td><td><a class="lec-chip" href="#l08">08</a>四个阶段完整展开</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>内容依据 10 集视频的英文字幕整理，时间戳链接到 YouTube 原视频对应位置。引述均为意译。</p>
+    <p>页面里标“实时”的演示在浏览器中计算：micrograd、bigram 与字符级 MLP 用内置的常见英文名小样本训练，BPE 在一段自写的示例文本上训练，结果与视频中的数字不同。标“数据”的图表数字取自视频里他报出的结果。第 7 集注意力演示中的 query/key 是手工设定的，只用来说明机制。</p>
+    <p><a href="../">← 目录</a> · 姊妹篇：<a href="../llm-overview/">LLM 全景动画讲义</a> · 非官方学习笔记，与 Andrej Karpathy 本人无关。</p>
+  </div>
+</footer>
+
+<script src="js/core.js"></script>
+<script src="js/names.js"></script>
+<script src="js/page.js"></script>
+<script src="js/l01.js"></script>
+<script src="js/l02.js"></script>
+<script src="js/l03.js"></script>
+<script src="js/l04.js"></script>
+<script src="js/l05.js"></script>
+<script src="js/l06.js"></script>
+<script src="js/l07.js"></script>
+<script src="js/l08.js"></script>
+<script src="js/l09.js"></script>
+<script src="js/l10.js"></script>
+<script>document.addEventListener('DOMContentLoaded', () => { document.querySelectorAll('.n-names').forEach((e) => { e.textContent = window.NAMES.length + ' 个'; }); });</script>
+</body>
+</html>

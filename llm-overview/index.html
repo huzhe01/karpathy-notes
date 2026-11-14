@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Andrej Karpathy 三个面向大众的 LLM 讲座，按主题重排成动画讲义：数据、base model、后训练、模型心理、强化学习、能力、安全和用法。">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>LLM 全景动画讲义</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: companion volume to the Zero to Hero page. Hero = one system map of an LLM's life; sticky part rail;
+   nine thematic parts, each a stack of concept blocks with source chips (video + timestamp) and an inline demo.
+   Colour is semantic everywhere: violet = weights / pretraining knowledge (the "zip"), blue = context window and tokens,
+   green = tools and the outside world, orange = failure, risk and attack. */
+:root {
+  --paper: #f2f4f7; --panel: #ffffff; --ink: #161b26; --muted: #5d6676; --rule: #d7dbe3; --code: #eaedf2;
+  --zip: #6a4bd6; --ctx: #1f63c6; --tool: #12846a; --risk: #cf550e;
+  --zip-soft: rgba(106, 75, 214, .12); --ctx-soft: rgba(31, 99, 198, .12); --tool-soft: rgba(18, 132, 106, .13); --risk-soft: rgba(207, 85, 14, .12);
+  --s1: #b9c8f5; --s2: #8aa3ec; --s3: #5b7fe0; --s4: #6a4bd6; --s5: #3b2a8f;
+  --cheese: #f1cf72; --cheese-edge: #c9a33f;
+  --f-display: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1218; --panel: #171b23; --ink: #e4e7ee; --muted: #8f98a8; --rule: #2b313d; --code: #1e232d;
+    --zip: #a48bff; --ctx: #62a0ff; --tool: #3fc497; --risk: #ff8f50;
+    --zip-soft: rgba(164, 139, 255, .18); --ctx-soft: rgba(98, 160, 255, .18); --tool-soft: rgba(63, 196, 151, .18); --risk-soft: rgba(255, 143, 80, .18);
+    --s1: #2c3f78; --s2: #3d5cb0; --s3: #5b82e6; --s4: #8c74f0; --s5: #c2b5ff;
+    --cheese: #8a7330; --cheese-edge: #b8963e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1218; --panel: #171b23; --ink: #e4e7ee; --muted: #8f98a8; --rule: #2b313d; --code: #1e232d;
+  --zip: #a48bff; --ctx: #62a0ff; --tool: #3fc497; --risk: #ff8f50;
+  --zip-soft: rgba(164, 139, 255, .18); --ctx-soft: rgba(98, 160, 255, .18); --tool-soft: rgba(63, 196, 151, .18); --risk-soft: rgba(255, 143, 80, .18);
+  --s1: #2c3f78; --s2: #3d5cb0; --s3: #5b82e6; --s4: #8c74f0; --s5: #c2b5ff;
+  --cheese: #8a7330; --cheese-edge: #b8963e;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(64px + env(safe-area-inset-top, 0px)); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.75; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+a { color: var(--ctx); }
+code, .mono { font-family: var(--f-mono); font-size: .88em; }
+code { background: var(--code); padding: .08em .35em; border-radius: 4px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.muted { color: var(--muted); } .small { font-size: 12.5px; }
+.t-zip { color: var(--zip); } .t-ctx { color: var(--ctx); } .t-tool { color: var(--tool); } .t-risk { color: var(--risk); }
+
+/* hero */
+.hero { padding-block: 48px 24px; display: grid; gap: 20px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(2rem, 5.2vw, 3.4rem); line-height: 1.14; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+h1 .z { color: var(--zip); } h1 .c { color: var(--ctx); } h1 .t { color: var(--tool); }
+.lede { max-width: 70ch; margin: 0; font-size: 1.06rem; }
+.vids { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.vid { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--panel); text-decoration: none; color: var(--ink); }
+.vid:hover { border-color: var(--ink); }
+.vid b { font-family: var(--f-display); font-size: 15px; }
+.vid span { font-size: 12.5px; color: var(--muted); }
+.legend-row { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; color: var(--muted); }
+.legend-row span { display: inline-flex; align-items: center; gap: 7px; }
+.legend-row i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.skip { font-size: 14px; color: var(--muted); background: var(--code); border-radius: 8px; padding: 10px 14px; margin: 0; max-width: 90ch; }
+.skip b { color: var(--ink); }
+
+/* rail */
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); border-block: 1px solid var(--rule); }
+.rail .wrap { display: flex; gap: 6px; align-items: center; overflow-x: auto; padding-block: 10px; scrollbar-width: none; }
+.rail .wrap::-webkit-scrollbar { display: none; }
+.rail b { font-family: var(--f-display); font-size: 14px; margin-right: 8px; white-space: nowrap; }
+.rail a { font-size: 13px; text-decoration: none; color: var(--muted); padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.rail a:hover { color: var(--ink); background: var(--code); }
+.rail a.on { color: var(--panel); background: var(--ink); }
+
+/* parts and blocks */
+.part { padding-block: 56px 16px; border-bottom: 1px solid var(--rule); }
+.part-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 20px; align-items: end; margin-bottom: 10px; }
+.part-num { grid-column: 1; grid-row: 1 / 3; font-family: var(--f-display); font-weight: 700; font-size: clamp(2.8rem, 7vw, 4.6rem); line-height: .9; color: var(--ctx); }
+.part-head h2 { grid-column: 2; grid-row: 1; margin: 0; font-family: var(--f-display); font-size: clamp(1.4rem, 3.2vw, 2rem); line-height: 1.2; text-wrap: balance; }
+.part-q { grid-column: 2; grid-row: 2; margin: 0; color: var(--muted); font-size: 14px; }
+.part-lede { max-width: 72ch; margin: 12px 0 8px; font-size: 1.03rem; }
+.blk { padding-block: 18px 6px; display: grid; gap: 6px; }
+.blk h3 { margin: 0; font-family: var(--f-display); font-size: 1.12rem; font-weight: 600; line-height: 1.4; }
+.blk > p { margin: 0; max-width: 72ch; }
+.srcs { display: flex; flex-wrap: wrap; gap: 6px; }
+a.src { font-family: var(--f-mono); font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); text-decoration: none; white-space: nowrap; background: var(--panel); }
+a.src:hover { color: var(--ink); border-color: var(--ink); }
+.extra { font-family: var(--f-mono); font-size: 11px; color: var(--zip); border: 1px dashed var(--zip); border-radius: 999px; padding: 0 7px; }
+.quote { margin: 4px 0; padding: 10px 14px; background: var(--code); border-radius: 8px; font-size: 14.5px; max-width: 72ch; }
+.quote b { font-family: var(--f-mono); }
+.list2 { margin: 0; padding-left: 1.1em; max-width: 72ch; }
+.list2 li { margin-bottom: 3px; }
+.list2 li::marker { color: var(--ctx); }
+
+/* demo shell */
+.demo { margin: 10px 0 4px; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 14px 16px 16px; display: grid; gap: 10px; min-width: 0; }
+.demo figcaption { font-family: var(--f-display); font-weight: 600; font-size: 15px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.demo .tag { font-family: var(--f-mono); font-weight: 400; font-size: 11px; color: var(--ctx); border: 1px solid currentColor; border-radius: 999px; padding: 0 8px; }
+.demo-body { display: grid; gap: 10px; min-width: 0; }
+.controls-slot:empty { display: none; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; }
+.btn { font: 500 13px/1.2 var(--f-body); padding: 7px 12px; border-radius: 6px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; white-space: nowrap; }
+.btn:hover:not(:disabled) { border-color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn:focus-visible, input:focus-visible, textarea:focus-visible, button:focus-visible, .seg input:focus-visible + label, [tabindex]:focus-visible, a:focus-visible { outline: 2px solid var(--ctx); outline-offset: 2px; }
+.counter { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.slider { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+.slider input { width: 150px; accent-color: var(--ctx); }
+.sl-lab { color: var(--muted); }
+.sl-val { font-family: var(--f-mono); font-size: 12.5px; min-width: 4em; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; }
+.check input { accent-color: var(--ctx); width: 16px; height: 16px; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { font-size: 12.5px; padding: 6px 10px; cursor: pointer; border-right: 1px solid var(--rule); background: var(--paper); white-space: nowrap; }
+.seg label:last-child { border-right: 0; }
+.seg input:checked + label { background: var(--ink); color: var(--panel); }
+.field { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.field.wide { display: flex; flex-wrap: wrap; width: 100%; }
+.field input { font: 14px/1.5 var(--f-mono); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 9px; min-width: 0; width: 12em; }
+.field.wide input { flex: 1 1 260px; width: auto; }
+.narr { margin: 0; font-size: 14px; line-height: 1.7; background: var(--code); border-radius: 6px; padding: 9px 12px; min-height: 3.2em; }
+.narr b { font-weight: 600; }
+.hint { margin: 0; font-size: 12.5px; color: var(--muted); }
+.mini-title { margin: 0; font-size: 12.5px; color: var(--muted); font-family: var(--f-mono); }
+.cv-box { width: 100%; min-width: 0; }
+.cv { display: block; }
+.scroll-x { overflow-x: auto; min-width: 0; }
+.demo svg { display: block; width: 100%; height: auto; font-family: var(--f-body); }
+.err { color: var(--risk); font-size: 13px; }
+.code { font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6; background: var(--code); border-radius: 6px; padding: 10px 12px; margin: 0; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+.two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.two-col > * { min-width: 0; }
+.arrow { color: var(--muted); }
+
+/* svg vocabulary */
+.lab { fill: var(--ink); font-size: 12px; }
+.lab.small { font-size: 11px; } .lab.tiny { font-size: 10.5px; fill: var(--muted); }
+.lab.t-risk { fill: var(--risk); } .lab.t-zip { fill: var(--zip); } .lab.t-tool { fill: var(--tool); } .lab.t-ctx { fill: var(--ctx); }
+.axis { stroke: var(--muted); stroke-width: 1; fill: none; }
+.mn rect, .osn rect { fill: var(--panel); stroke: var(--ink); stroke-width: 1.4; transition: all .25s; }
+.mn.zip rect, .osn.zip rect { fill: var(--zip-soft); stroke: var(--zip); }
+.mn.ctx rect, .osn.ctx rect { fill: var(--ctx-soft); stroke: var(--ctx); }
+.mn.tool rect, .osn.tool rect { fill: var(--tool-soft); stroke: var(--tool); }
+.osn.risk rect { fill: var(--risk-soft); stroke: var(--risk); }
+.osn.kernel rect { fill: var(--zip-soft); stroke: var(--zip); stroke-width: 2.5; }
+.mn-t { fill: var(--ink); font-size: 13px; font-weight: 600; }
+.mn-t.small { font-size: 12px; }
+.mn-s { fill: var(--muted); font-size: 10.5px; }
+.map a { cursor: pointer; }
+.map a:hover rect, .map a:focus-visible rect { stroke-width: 2.8; }
+.map-line { stroke: var(--rule); stroke-width: 3; fill: none; }
+.map-line.thin { stroke-width: 1.5; }
+.map-line.dash { stroke-dasharray: 4 4; }
+.map-line.risk { stroke: var(--risk); }
+.map-dot { fill: var(--ctx); }
+.tagg rect { stroke-width: 1.4; }
+.tagg.psy rect { fill: var(--zip-soft); stroke: var(--zip); stroke-dasharray: 5 3; }
+.tagg.risk rect { fill: var(--risk-soft); stroke: var(--risk); }
+.osn[tabindex] { cursor: pointer; }
+.osn.on rect { stroke-width: 3; }
+.osn.dim { opacity: .3; }
+.os-link { stroke: var(--rule); stroke-width: 1.5; }
+.inj-a { stroke: var(--muted); stroke-width: 1.6; }
+.inj-a.risk { stroke: var(--risk); stroke-dasharray: 5 3; }
+.inj-h { fill: var(--muted); } .inj-h.risk { fill: var(--risk); }
+
+/* part 1-3 */
+.files { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+.file { display: grid; gap: 2px; padding: 12px 14px; border: 1.5px solid var(--ink); border-radius: 6px; background: var(--paper); min-width: 160px; }
+.file.big { width: min(var(--w, 60%), calc(100% - 200px)); background: var(--zip-soft); border-color: var(--zip); transition: width .4s; }
+.file b { font-family: var(--f-display); font-size: 1.4rem; }
+.f-ico { font-family: var(--f-mono); font-size: 13px; font-weight: 600; }
+.file .muted { font-size: 12.5px; }
+.blob-zip { fill: var(--code); stroke: var(--rule); }
+.txtline { stroke: var(--muted); stroke-opacity: .45; stroke-width: 3; stroke-linecap: round; }
+.funnel { fill: var(--zip-soft); stroke: var(--zip); }
+.zipbox { fill: var(--zip-soft); stroke: var(--zip); stroke-width: 2; }
+.rev { display: grid; gap: 8px; }
+.rev-row, .qa, .poison { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bub { display: inline-block; padding: 6px 12px; border-radius: 14px; font-size: 14px; background: var(--code); max-width: 100%; }
+.bub.bot { background: var(--ctx-soft); }
+.bub.ok { box-shadow: inset 0 0 0 1.5px var(--tool); }
+.bub.bad, .qa.bad .bub.bot { background: var(--risk-soft); }
+.qa.ok .bub.bot { box-shadow: inset 0 0 0 1.5px var(--tool); }
+.qa.tool .bub.bot { background: var(--tool-soft); font-family: var(--f-mono); font-size: 13px; }
+.funnel-list { display: grid; gap: 5px; }
+.fn-row { all: unset; display: block; cursor: pointer; }
+.fn-bar { display: block; min-width: 9em; height: 32px; line-height: 32px; padding: 0 12px; border-radius: 5px; background: var(--zip-soft); font-size: 13.5px; white-space: nowrap; transition: background .25s; }
+.fn-row.past .fn-bar { background: color-mix(in srgb, var(--zip) 28%, transparent); }
+.fn-row.on .fn-bar { background: var(--zip); color: var(--panel); }
+.fn-row:focus-visible .fn-bar { outline: 2px solid var(--ctx); }
+.ladder { display: grid; gap: 6px; }
+.lad-row { display: grid; grid-template-columns: minmax(0, 14em) minmax(0, 1fr) 5.5em minmax(0, 11em); gap: 12px; align-items: center; font-size: 13.5px; }
+.lad-bar { height: 12px; background: var(--code); border-radius: 3px; overflow: hidden; }
+.lad-bar i { display: block; height: 100%; background: var(--zip); }
+.lad-v { font-family: var(--f-mono); }
+.lad-note { color: var(--muted); font-size: 12.5px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.facts > div { display: grid; gap: 2px; padding: 8px 10px; background: var(--paper); border-radius: 6px; }
+.facts b { font-family: var(--f-display); font-size: 1.25rem; }
+.facts span { font-size: 12.5px; color: var(--muted); line-height: 1.5; }
+.term { margin: 0; font-family: var(--f-mono); font-size: 13px; line-height: 1.7; background: var(--code); border-radius: 6px; padding: 12px; white-space: pre-wrap; min-height: 6em; }
+.term-o { color: var(--ctx); }
+.mem { display: grid; gap: 10px; }
+.mem-col { display: grid; gap: 3px; }
+.mem-lab { font-size: 13px; }
+.mem-bar { height: 14px; background: var(--code); border-radius: 7px; overflow: hidden; }
+.mem-bar i { display: block; height: 100%; transition: width .35s, opacity .35s; }
+.mem-bar.zip i { background: var(--zip); } .mem-bar.ctx i { background: var(--ctx); } .mem-bar.out i { background: var(--tool); }
+.mem-cases { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { font: 13px var(--f-body); padding: 5px 11px; border-radius: 999px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; }
+.chip-btn:hover { border-color: var(--ink); }
+
+/* part 4-5 */
+.chat { display: flex; flex-direction: column; gap: 6px; min-height: 2em; }
+.chat .bub.user { align-self: flex-end; }
+.chat .bub.bot { align-self: flex-start; }
+.seq { display: flex; flex-wrap: wrap; gap: 3px; font-family: var(--f-mono); font-size: 12px; min-height: 1.6em; }
+.seq .tok { padding: 2px 5px; border-radius: 3px; background: var(--code); }
+.seq .tok.sp { background: var(--zip-soft); color: var(--zip); }
+.seq .tok.role { background: var(--ctx-soft); }
+.seq .tok.gen { background: var(--tool-soft); }
+.seq.hi-sp .tok.sp { outline: 2px solid var(--zip); }
+.hm-track { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.hm-stop { border: 1px solid var(--rule); border-radius: 6px; padding: 8px; font-size: 13px; text-align: center; transition: all .25s; }
+.hm-stop.on { background: var(--ctx-soft); border-color: var(--ctx); font-weight: 600; }
+.hm-ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.stage-box { display: grid; gap: 8px; min-height: 150px; align-content: start; }
+.doc { padding: 8px 12px; background: var(--code); border-radius: 6px; font-size: 14px; }
+.doc.tool { background: var(--tool-soft); }
+.prob { margin: 0; padding: 8px 12px; background: var(--code); border-radius: 6px; font-size: 14.5px; }
+.ans { display: grid; gap: 6px; align-content: start; }
+.toks2 { display: flex; flex-wrap: wrap; gap: 3px 2px; min-height: 52px; }
+.tk2 { display: grid; gap: 3px; justify-items: center; }
+.tk2-t { font-family: var(--f-mono); font-size: 12px; background: var(--code); padding: 1px 4px; border-radius: 3px; white-space: pre; }
+.tk2-c { width: 8px; height: 24px; border-radius: 2px; background: repeating-linear-gradient(to top, var(--s3) 0 3px, transparent 3px 5px); }
+.tk2.hard .tk2-t { background: var(--risk-soft); outline: 1.5px solid var(--risk); }
+.tk2.hard .tk2-c { background: repeating-linear-gradient(to top, var(--risk) 0 3px, transparent 3px 5px); }
+.tk2.work .tk2-t { background: var(--ctx-soft); outline: 1.5px solid var(--ctx); }
+.chunks2 { display: flex; flex-wrap: wrap; gap: 4px; }
+.ck { font-family: var(--f-mono); font-size: 16px; padding: 4px 9px; background: var(--zip-soft); border-radius: 5px; }
+.cheese-body { fill: var(--cheese); stroke: var(--cheese-edge); stroke-width: 2; }
+.hole { cursor: pointer; }
+.hole circle { fill: var(--paper); stroke: var(--cheese-edge); stroke-width: 2; transition: all .2s; }
+.hole.on circle, .hole:hover circle { stroke: var(--risk); stroke-width: 3; }
+
+/* part 6 */
+.book { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.bk { border: 1.5px solid var(--rule); border-radius: 8px; overflow: hidden; transition: opacity .3s, border-color .3s; display: grid; }
+.bk.dim { opacity: .3; }
+.bk-page, .bk-map { display: grid; gap: 2px; padding: 10px 12px; font-size: 13.5px; }
+.bk-page { background: var(--code); min-height: 4.6em; }
+.bk-page b, .bk-map b { font-family: var(--f-display); font-size: 14.5px; }
+.bk.zip.on { border-color: var(--zip); } .bk.zip.on .bk-map { background: var(--zip-soft); }
+.bk.ctx.on { border-color: var(--ctx); } .bk.ctx.on .bk-map { background: var(--ctx-soft); }
+.bk.tool.on { border-color: var(--tool); } .bk.tool.on .bk-map { background: var(--tool-soft); }
+.rl-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; }
+.rl-grid > div { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.rolls { display: grid; gap: 3px; }
+.roll { display: grid; grid-template-columns: minmax(0, 1fr) 1.4em; gap: 6px; align-items: center; }
+.rbar { display: block; height: 11px; border-radius: 3px; min-width: 6px; }
+.rbar.s1, .pol-bar i.s1 { background: var(--s1); } .rbar.s2, .pol-bar i.s2 { background: var(--s2); } .rbar.s3, .pol-bar i.s3 { background: var(--s3); } .rbar.s5, .pol-bar i.s5 { background: var(--s5); }
+.roll b { font-size: 13px; text-align: center; }
+.roll b.ok { color: var(--tool); } .roll b.bad { color: var(--risk); }
+.pol { display: grid; gap: 4px; }
+.pol-row { display: grid; grid-template-columns: 7.5em minmax(0, 1fr) 3em; gap: 8px; align-items: center; font-size: 13px; }
+.pol-bar { height: 12px; background: var(--code); border-radius: 3px; overflow: hidden; }
+.pol-bar i { display: block; height: 100%; transition: width .2s; }
+.pol-row b { font-family: var(--f-mono); font-size: 12px; text-align: right; }
+.human-line { stroke: var(--risk); stroke-dasharray: 6 4; stroke-width: 1.5; }
+.curve { fill: none; stroke-width: 2.6; }
+.curve.sup { stroke: var(--zip); } .curve.rl { stroke: var(--tool); }
+.jokes { display: grid; gap: 4px; }
+.joke { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) minmax(60px, 140px) 3em; gap: 8px; align-items: center; font-size: 13px; }
+.joke .rank { color: var(--muted); font-size: 12px; }
+.jbar { height: 10px; background: var(--code); border-radius: 3px; overflow: hidden; }
+.jbar i { display: block; height: 100%; background: var(--zip); transition: width .4s; }
+.joke b { font-family: var(--f-mono); font-size: 12px; text-align: right; }
+.big-num { display: grid; justify-items: center; gap: 2px; padding: 16px 0 4px; }
+.big-num b { font-family: var(--f-display); font-size: clamp(1.4rem, 4vw, 2rem); color: var(--risk); }
+.big-num span { font-size: 13px; color: var(--muted); text-align: center; }
+.center { text-align: center; margin: 0; }
+
+/* part 7-8 */
+.trace { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.tr { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: 10px; padding: 7px 10px; border-radius: 6px; background: var(--code); font-size: 14px; }
+.tr-who { font-family: var(--f-mono); font-size: 12px; font-weight: 600; padding-top: 2px; }
+.tr.tool .tr-who { color: var(--tool); } .tr.llm .tr-who { color: var(--ctx); }
+.tr.tool { background: var(--tool-soft); }
+.tr.cur { outline: 1.5px solid var(--ink); }
+.patch-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
+.patch-cv { width: 288px; max-width: 100%; height: auto; image-rendering: pixelated; border-radius: 6px; border: 1px solid var(--rule); }
+.patch-ids { display: flex; flex-wrap: wrap; gap: 2px; font-family: var(--f-mono); font-size: 10px; }
+.pid { width: 22px; text-align: center; padding: 2px 0; border-radius: 2px; color: #fff; text-shadow: 0 0 2px #000, 0 0 1px #000; }
+.cards4 { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.card { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; background: var(--paper); font-size: 14px; }
+.card.risk { border-color: color-mix(in srgb, var(--risk) 45%, var(--rule)); }
+.card b { display: block; font-family: var(--f-display); font-size: 15px; }
+.card p { margin: 4px 0 0; }
+.card .muted { font-size: 13px; }
+
+/* part 9 */
+.ctxbar { display: flex; height: 30px; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.ctx-seg { border-right: 1px solid var(--panel); transition: opacity .3s; }
+.ctx-seg.user { background: var(--ctx); } .ctx-seg.bot { background: var(--zip); }
+.ctx-seg.stale { opacity: .35; }
+.ctx-free { background: var(--code); }
+.pick { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr); gap: 14px; }
+.pick-list { display: grid; gap: 4px; align-content: start; }
+.pick-b { text-align: left; font: 13.5px/1.35 var(--f-body); padding: 7px 10px; border-radius: 6px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; }
+.pick-b:hover { border-color: var(--ink); }
+.pick-b.on { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.pick-card { padding: 14px 16px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); display: grid; gap: 8px; align-content: start; font-size: 14.5px; }
+.pick-card h4 { margin: 0; font-family: var(--f-display); font-size: 1.3rem; color: var(--tool); }
+.pick-card p { margin: 0; }
+.pick-card a.src { justify-self: start; }
+.tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tier { border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; background: var(--panel); font-size: 14px; }
+.tier b { display: block; font-family: var(--f-display); font-size: 1.15rem; }
+footer { padding-block: 26px 48px; color: var(--muted); font-size: 13px; }
+footer p { margin: 4px 0; max-width: 84ch; }
+
+@media (max-width: 900px) {
+  .two-col, .rl-grid, .pick { grid-template-columns: minmax(0, 1fr); }
+  .pick-list { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+@media (max-width: 720px) {
+  .vids, .tiers, .book { grid-template-columns: minmax(0, 1fr); }
+  .hm-track { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .patch-grid { grid-template-columns: minmax(0, 1fr); }
+  .lad-row { grid-template-columns: minmax(0, 1fr) 5em; }
+  .lad-row .lad-bar { grid-column: 1 / -1; grid-row: 2; }
+  .lad-note { display: none; }
+  .joke { grid-template-columns: minmax(0, 1fr) 3em; }
+  .joke .rank, .joke .jbar { display: none; }
+  .slider input { width: 120px; }
+  .file.big { width: 100%; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap hero">
+    <p class="eyebrow">Andrej Karpathy · 三个面向大众的 LLM 讲座 · 合计约 6.7 小时</p>
+    <h1>一个 <span class="z">zip 文件</span>，<br>一张笑脸，<span class="t">一套工具</span></h1>
+    <p class="lede">这是他在 How I use LLMs 里给 ChatGPT 的画像：预训练把互联网有损地压缩成一个 zip，后训练给它贴上一张“助手”的笑脸，再配上搜索、Python、看图听声这些工具。这一页把三个讲座的内容按主题重新排了一遍，从数据怎么来，到模型的“心理”，到强化学习、安全，再到日常怎么用。每一条都标了视频和时间点，点一下跳到原处。</p>
+    <div class="vids">
+      <a class="vid" href="https://www.youtube.com/watch?v=zjkBMFhNj_g" target="_blank" rel="noopener"><b>Intro to Large Language Models</b><span>2023 年 11 月 · 1 小时 · 下文简称“LLM 入门”</span></a>
+      <a class="vid" href="https://www.youtube.com/watch?v=7xTGNNLPyMI" target="_blank" rel="noopener"><b>Deep Dive into LLMs like ChatGPT</b><span>2025 年 2 月 · 3.5 小时 · 简称“Deep Dive”</span></a>
+      <a class="vid" href="https://www.youtube.com/watch?v=EWvNQjAaOHw" target="_blank" rel="noopener"><b>How I use LLMs</b><span>2025 年 2 月 · 2.2 小时 · 简称“How I use”</span></a>
+    </div>
+    <div class="legend-row" aria-label="颜色约定">
+      <span><i style="background: var(--zip)"></i>紫 = 参数、预训练得来的知识</span>
+      <span><i style="background: var(--ctx)"></i>蓝 = token、上下文窗口</span>
+      <span><i style="background: var(--tool)"></i>绿 = 工具、外部世界</span>
+      <span><i style="background: var(--risk)"></i>橙 = 出错、风险、攻击</span>
+    </div>
+    <figure class="demo" id="d-map"><figcaption><span class="tag">全景</span>一个大模型从互联网到你手里</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+    <p class="skip"><b>跳过的内容。</b>分词和 BPE、Transformer 内部、梯度下降与反向传播、“预训练 → SFT → 奖励模型 → RL”四阶段的总体框架、“Transformer 需要 token 来思考”的基本说法、提示工程技巧，在第一页 <a href="../zero-to-hero/" target="_blank" rel="noopener">Zero to Hero 动画讲义</a> 里已经讲过，这里只补新的例子和更系统的部分。</p>
+  </div>
+</header>
+
+<nav class="rail" aria-label="跳转到某一部分">
+  <div class="wrap">
+    <b>LLM 全景</b>
+    <a href="#p1">1 是什么</a><a href="#p2">2 数据</a><a href="#p3">3 Base</a><a href="#p4">4 后训练</a><a href="#p5">5 心理</a><a href="#p6">6 强化学习</a><a href="#p7">7 能力</a><a href="#p8">8 安全</a><a href="#p9">9 怎么用</a><a href="#recap">回到起点</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<section class="part" id="p1">
+  <div class="part-head"><div class="part-num">1</div><h2>一个大模型到底是什么</h2><p class="part-q">两个文件、一次有损压缩、一个说不清内部的产物</p></div>
+  <div class="blk">
+    <h3>就是两个文件</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="0:24"></a></div>
+    <p>他用 Llama 2 70B 开场，因为它是当时最强的开放权重模型：权重、架构、论文都公开了。不像 ChatGPT，你只能通过网页用。</p>
+    <figure class="demo" id="d-files"><figcaption><span class="tag">可切换</span>参数文件 + 运行代码</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>训练 = 把互联网压缩进参数</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="4:23"></a></div>
+    <p>运行很便宜，难在得到参数。他拿维基百科首页上一篇关于 Ruth Handler 的文章举例：要预测下一个词，就得知道她是谁、何时出生、做过什么。“预测下一个词”看似简单，却逼着网络把大量世界知识学进参数。</p>
+    <figure class="demo" id="d-compress"><figcaption><span class="tag">可切换</span>10 TB 文本 → 140 GB 参数</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>它会“做梦”</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="9:03"></a></div>
+    <p>放开让它一直生成，它会“梦”出像网页的东西：一段 Java 代码、一个亚马逊商品页、一篇维基百科式的文章。商品页里的 ISBN 是编的，但格式对；它知道那个位置该出现什么样的东西。</p>
+  </div>
+  <div class="blk">
+    <h3>我们知道怎么调它，却不知道它怎么工作</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="11:25"></a></div>
+    <p>Transformer 的每一步运算都是清楚的，问题是上千亿参数散布在整个网络里。可解释性研究能弄懂一部分，但目前只能把它当作靠经验测量的产物：给输入、看输出、做评测。</p>
+    <figure class="demo" id="d-reversal"><figcaption><span class="tag">例子</span>反转诅咒：知识只能单向取用</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+</section>
+
+<section class="part" id="p2">
+  <div class="part-head"><div class="part-num">2</div><h2>预训练：先下载并处理互联网</h2><p class="part-q">数据从哪来，训练一次花多少</p></div>
+  <div class="blk">
+    <h3>FineWeb：一个有代表性的预训练数据集</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="1:07"></a></div>
+    <p>HuggingFace 整理的 FineWeb 详细公开了处理流程。他说 OpenAI、Anthropic、Google 内部都有类似的东西。目标是三件事：数量大、质量高、种类多。</p>
+    <figure class="demo" id="d-fineweb"><figcaption><span class="tag">动画</span>从 Common Crawl 到 44 TB</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>训练一次 GPT-2，今天和 2019 年</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="31:10"></a><a class="src" data-v="B" data-t="38:58"></a></div>
+    <p>GPT-2 是第一个“现代技术栈”齐全的模型，今天的模型只是每样都变大了。他在 8 块 H100 上复现时，屏幕上每一行是一次参数更新，盯着的只有 loss；每 20 步生成一段样本，从乱码慢慢变成有局部连贯的英文。</p>
+    <figure class="demo" id="d-cost"><figcaption><span class="tag">数据</span>成本与规模</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+</section>
+
+<section class="part" id="p3">
+  <div class="part-head"><div class="part-num">3</div><h2>Base model：互联网文档模拟器</h2><p class="part-q">预训练的产物能做什么，不能做什么</p></div>
+  <div class="blk">
+    <h3>和 Llama 3.1 405B 的基座模型玩一玩</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="42:57"></a><a class="src" data-v="B" data-t="51:51"></a><a class="src" data-v="B" data-t="54:16"></a><a class="src" data-v="B" data-t="55:45"></a></div>
+    <p>Llama 3 是 4050 亿参数、15 万亿 token 训练出来的。基座模型很少公开发布，他在 Hyperbolic 上找到一个能直接用的。它是 token 层面的自动补全器，每次采样结果都不同。</p>
+    <figure class="demo" id="d-base"><figcaption><span class="tag">示意</span>同一个基座模型，五种提示</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+    <p class="hint">续写内容是依据视频里他演示的结果改写的，不是实时生成。</p>
+  </div>
+  <div class="blk">
+    <h3>两种记忆：参数是模糊的回忆，上下文是工作记忆</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="1:39:29"></a><a class="src" data-v="C" data-t="13:16"></a></div>
+    <p>这是贯穿后两个讲座的一条主线，也直接决定了怎么用它：常见的事可以问它的记忆，具体材料就贴进来。</p>
+    <figure class="demo" id="d-memory"><figcaption><span class="tag">可拖动</span>参数里的知识 vs 上下文里的知识</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+</section>
+
+<section class="part" id="p4">
+  <div class="part-head"><div class="part-num">4</div><h2>后训练：给 zip 贴上一张笑脸</h2><p class="part-q">对话怎么变成训练数据，你到底在和谁说话</p></div>
+  <div class="blk">
+    <h3>算法不变，只换数据</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="14:14"></a><a class="src" data-v="B" data-t="1:01:10"></a></div>
+    <p>后训练还是“预测下一个 token”，只是把互联网文档换成了对话。预训练可能要在几千台机器上跑大约三个月；后训练他举的例子是大约 3 小时，因为人工写的对话数据小得多（2023 年他说的量级是约 10 万条）。预训练管知识，后训练管格式和行为，他在 2023 年把后者叫 alignment。</p>
+    <figure class="demo" id="d-template"><figcaption><span class="tag">动画</span>一段对话变成一串 token</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>谁在写这些对话</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="22:38"></a><a class="src" data-v="B" data-t="1:10:13"></a><a class="src" data-v="B" data-t="1:15:14"></a></div>
+    <p>公司写标注规范，核心是三个词：helpful、truthful、harmless，完整版本可能有几百页。</p>
+    <figure class="demo" id="d-slider"><figcaption><span class="tag">可拖动</span>人和模型的分工在往右移</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>你在和谁说话</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="1:16:39"></a></div>
+    <p>他的说法是：ChatGPT 的回答是一个“人类标注员”的即时统计模拟。这个标注员通常是相当专业的人，按公司的规范作答。比如问“巴黎最值得去的五个景点”：如果这个问题恰好在后训练数据里，你得到的大概就是当时那位标注员上网查了 20 分钟后写下的清单；如果不在，就是预训练知识和标注员风格的混合。</p>
+  </div>
+  <div class="blk">
+    <h3>“你是谁？”是个没意义的问题</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="1:41:47"></a></div>
+    <p>模型没有持续存在的自我：每次对话启动、处理 token、关闭，下次从零开始。它说自己是谁，要么是后训练数据里硬编码的，比如 AI2 的 OLMo 在约 100 万条对话里放了 240 条“我是 OLMo，由艾伦人工智能研究所开发”；要么写在对话开头的系统消息里。什么都不做的话，它只会给出统计上最像的猜测：老模型 Falcon 说自己是 OpenAI 基于 GPT-3 做的。他认为这不能说明它用了 OpenAI 的数据，只是互联网上关于 ChatGPT 和 OpenAI 的文字太多了。</p>
+  </div>
+</section>
+
+<section class="part" id="p5">
+  <div class="part-head"><div class="part-num">5</div><h2>模型心理学</h2><p class="part-q">训练流程带来的“认知副作用”</p></div>
+  <div class="blk">
+    <h3>幻觉从哪来，怎么缓解</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="1:20:33"></a><a class="src" data-v="B" data-t="1:25:53"></a><a class="src" data-v="B" data-t="1:32:19"></a></div>
+    <figure class="demo" id="d-halluc"><figcaption><span class="tag">动画</span>为什么会编，以及两种办法</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>每个 token 的计算量有限</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="1:47:03"></a></div>
+    <p>第一页讲过“Transformer 需要 token 来思考”这句话，Deep Dive 给了一个具体到标注员层面的例子：同一道题，两个都正确的回答，哪个才是好的训练数据？</p>
+    <figure class="demo" id="d-emily"><figcaption><span class="tag">动画</span>Emily 买苹果</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>拼写和数字母</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="2:01:11"></a></div>
+    <figure class="demo" id="d-chars"><figcaption><span class="tag">可输入</span>它看到的是块，不是字母</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>参差不齐的智能</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="2:04:57"></a><a class="src" data-v="B" data-t="3:08:46"></a></div>
+    <figure class="demo" id="d-cheese"><figcaption><span class="tag">可点击</span>瑞士奶酪模型</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+</section>
+
+<section class="part" id="p6">
+  <div class="part-head"><div class="part-num">6</div><h2>强化学习与思考模型</h2><p class="part-q">第三个训练阶段，也是 2025 年最新的前沿</p></div>
+  <div class="blk">
+    <h3>上学的类比</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="2:07:32"></a></div>
+    <figure class="demo" id="d-book"><figcaption><span class="tag">动画</span>课本的三种内容，对应三个训练阶段</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>为什么不能只靠人写解法</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="2:14:47"></a></div>
+    <p>人写的解法对人来说自然，对模型却未必：有的步骤对它太简单，浪费 token；有的跳得太快，它跟不上。人和模型的“认知”不同，我们没法替它写出最适合它的 token 序列。模仿只能用来初始化，之后要让它自己在试错中找到对它管用的解法。做法很简单：对同一个提示采样大量解法（实践中可能上千甚至上百万个），鼓励那些得出正确答案的。</p>
+    <figure class="demo" id="d-rl"><figcaption><span class="tag">实时</span>玩具强化学习：对答对的解法加分</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>DeepSeek-R1：思考是自己长出来的</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="2:27:53"></a></div>
+    <p>预训练和 SFT 各家都做了很多年，RL 阶段还很早期、细节很多。DeepSeek-R1 的论文公开讲了在数学题上做 RL 的效果：准确率上升的同时，平均回答长度也在上升。看那些长回答，模型学会了换个角度重来、回头检查、“等一下，我再算一遍”。论文里有一句模型自己写出的话：</p>
+    <p class="quote"><b>“Wait, wait. Wait. That's an aha moment I can flag here.”</b></p>
+    <p>没有人告诉它要这样做，只给了正确答案。这类模型叫思考模型或推理模型。他提醒 DeepSeek 是中国公司，介意的话可以在 together.ai 这类推理服务商上用同一个开放权重模型。</p>
+  </div>
+  <div class="blk">
+    <h3>AlphaGo 早就演示过一次</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="38:04"></a><a class="src" data-v="B" data-t="2:42:10"></a></div>
+    <figure class="demo" id="d-go"><figcaption><span class="tag">示意</span>模仿有天花板，强化学习没有</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+    <p>两个讲座在这里接上了。2023 年他说，LLM 还停留在 AlphaGo 的第一阶段（模仿人类），难点是开放的语言任务没有一个简单、便宜的奖励函数，也许只在窄领域能做到自我提升。到 2025 年，在数学、代码这类答案可验证的领域，这一步已经实现了。</p>
+  </div>
+  <div class="blk">
+    <h3>没有标准答案的领域：RLHF</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="2:48:26"></a></div>
+    <p>第一页讲过奖励模型和 PPO 的流程，这里补上他在 Deep Dive 里讲的代价。</p>
+    <figure class="demo" id="d-rlhf"><figcaption><span class="tag">动画</span>人类偏好模拟器，以及它怎么被“钻空子”</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+</section>
+
+<section class="part" id="p7">
+  <div class="part-head"><div class="part-num">7</div><h2>能力在往哪些方向扩张</h2><p class="part-q">规模、工具、多模态，以及一种新的操作系统</p></div>
+  <div class="blk">
+    <h3>缩放律：只看 N 和 D</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="25:45"></a><span class="extra">补充：曲线用 Chinchilla 论文的拟合公式</span></div>
+    <p>他只给了定性结论。为了能拖动，这里用 Hoffmann 等人 2022 年拟合的公式 L = 1.69 + 406.4/N^0.34 + 410.7/D^0.28 画图，数值只用来感受形状。</p>
+    <figure class="demo" id="d-scaling"><figcaption><span class="tag">可拖动</span>参数量和数据量决定 loss</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>工具使用：Scale AI 的例子</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="27:48"></a></div>
+    <figure class="demo" id="d-tools"><figcaption><span class="tag">动画</span>一次对话里调了四种工具</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>多模态：图片和声音也变成 token</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="33:32"></a><a class="src" data-v="C" data-t="1:27:40"></a><a class="src" data-v="C" data-t="1:40:27"></a></div>
+    <p>2023 年他举的例子是 Greg Brockman 拿铅笔画了一个笑话网站的草图，ChatGPT 看图写出了能用的 HTML 和 JavaScript。2025 年他解释了原理：</p>
+    <figure class="demo" id="d-patch"><figcaption><span class="tag">实时</span>把一张图切块、量化成 token</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>System 2、自我改进、定制化</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="35:06"></a><a class="src" data-v="A" data-t="40:48"></a></div>
+    <p>2023 年他列的三个方向：让模型能“想得更久”，他的说法是把时间换成准确率，像搭一棵思考树那样反复推敲；自我改进（上面 AlphaGo 那一节）；定制化，比如当时刚发布的 GPTs 商店，可以加自定义指令、上传文件做检索增强生成。前两个方向在 2025 年变成了思考模型。</p>
+  </div>
+  <div class="blk">
+    <h3>LLM OS</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="42:17"></a></div>
+    <figure class="demo" id="d-os"><figcaption><span class="tag">可点击</span>把 LLM 看成一个操作系统的内核</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+    <p>生态也对得上：桌面系统有 Windows、macOS 这些闭源系统，也有基于 Linux 的大量开源系统；LLM 这边有 GPT、Claude、Bard 这些闭源模型，也有当时主要基于 Llama 的开源生态。</p>
+  </div>
+  <div class="blk">
+    <h3>2025 年他预告的方向</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="3:09:40"></a></div>
+    <ul class="list2">
+      <li>多模态会很快成为默认：原生地听、说、看、画。</li>
+      <li>智能体：能连贯地执行很长时间的任务，人定期检查进度。他说会出现类似工厂里“人机比”的“人和智能体的比例”。</li>
+      <li>无处不在、不再显眼：集成进各种工具里。</li>
+      <li>操作电脑：比如 OpenAI 的 Operator，能替你点鼠标、敲键盘。</li>
+    </ul>
+  </div>
+</section>
+
+<section class="part" id="p8">
+  <div class="part-head"><div class="part-num">8</div><h2>安全：新的计算范式，新的攻防</h2><p class="part-q">2023 年他讲的三类攻击</p></div>
+  <div class="blk">
+    <h3>越狱</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="46:18"></a></div>
+    <figure class="demo" id="d-jail"><figcaption><span class="tag">可输入</span>四种越狱方式</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>提示注入</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="51:38"></a></div>
+    <figure class="demo" id="d-inject"><figcaption><span class="tag">动画</span>藏在数据里的指令</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>数据投毒和后门</h3>
+    <div class="srcs"><a class="src" data-v="A" data-t="56:25"></a></div>
+    <figure class="demo" id="d-poison"><figcaption><span class="tag">示意</span>一个触发词</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+    <p>他的结论：这些攻击都已有对应的防御，视频里的很多例子可能已经不灵了。但这和传统安全一样，是一场持续的猫鼠游戏，而且攻击种类远不止这三类。</p>
+  </div>
+</section>
+
+<section class="part" id="p9">
+  <div class="part-head"><div class="part-num">9</div><h2>怎么用</h2><p class="part-q">How I use LLMs 的实用部分</p></div>
+  <div class="blk">
+    <h3>先知道你在和什么说话</h3>
+    <div class="srcs"><a class="src" data-v="C" data-t="7:55"></a><a class="src" data-v="C" data-t="10:28"></a></div>
+    <p>他建议这样想：ChatGPT 是一个大约 1 TB 量级的有损 zip，里面是几个月甚至一年前的互联网（所以有知识截止日期），后训练给它贴了一张笑脸，让它扮演助手。它本身是封闭的、惰性的，不联网、不会运行代码，除非给它工具。</p>
+  </div>
+  <div class="blk">
+    <h3>上下文窗口是宝贵的工作记忆</h3>
+    <div class="srcs"><a class="src" data-v="C" data-t="16:17"></a></div>
+    <figure class="demo" id="d-ctx"><figcaption><span class="tag">可点击</span>换话题就开新对话</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>注意你用的是哪个模型</h3>
+    <div class="srcs"><a class="src" data-v="C" data-t="18:06"></a></div>
+    <p>录视频时 ChatGPT 的三档（价格会变）：</p>
+    <div class="tiers">
+      <div class="tier"><b>免费</b>未登录时它不告诉你用的是哪个模型，可能是更小、更容易幻觉的版本。</div>
+      <div class="tier"><b>Plus · 每月 20 美元</b>旗舰模型 GPT-4o 每 3 小时 80 条消息。</div>
+      <div class="tier"><b>Pro · 每月 200 美元</b>他自己在用：o1 pro 等最强的思考模型、Deep Research。</div>
+    </div>
+    <p>模型越大，世界知识越多、写作越有创意、越少犯错。其他家（Claude、Gemini、Grok、Perplexity 等）也各有分档，他的建议是多试几家，找最适合你任务的。</p>
+  </div>
+  <div class="blk">
+    <h3>什么事用什么功能</h3>
+    <div class="srcs"><a class="src" data-v="C" data-t="22:54"></a><a class="src" data-v="C" data-t="2:06:31"></a></div>
+    <figure class="demo" id="d-pick"><figcaption><span class="tag">可点击</span>按需求选功能</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>语音：假的和真的</h3>
+    <div class="srcs"><a class="src" data-v="C" data-t="1:22:30"></a><a class="src" data-v="C" data-t="1:27:40"></a></div>
+    <figure class="demo" id="d-voice"><figcaption><span class="tag">可切换</span>音频在哪一步变成了 token</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+  <div class="blk">
+    <h3>怎么跟上这个领域，去哪找模型</h3>
+    <div class="srcs"><a class="src" data-v="B" data-t="3:15:16"></a><a class="src" data-v="B" data-t="3:18:37"></a></div>
+    <ul class="list2">
+      <li><b>跟进：</b>LM Arena 排行榜（人类盲评两两比较，可作为第一印象，但要自己试）；swyx 等人做的 AI News 通讯，非常全。</li>
+      <li><b>闭源模型：</b>去各家官网，如 chatgpt.com、gemini.google.com。</li>
+      <li><b>开放权重模型：</b>DeepSeek、Llama 等去推理服务商，他常用 together.ai；想玩基座模型去 Hyperbolic。</li>
+      <li><b>本地运行：</b>用 LM Studio 跑小一些的蒸馏版、低精度量化版，大模型在 MacBook 上跑不动。</li>
+    </ul>
+  </div>
+</section>
+
+<section class="part" id="recap">
+  <div class="part-head"><div class="part-num">↺</div><h2>回到起点：按下回车之后</h2><p class="part-q">Deep Dive 的结尾总结</p></div>
+  <div class="blk">
+    <div class="srcs"><a class="src" data-v="B" data-t="3:21:47"></a></div>
+    <figure class="demo" id="d-enter"><figcaption><span class="tag">动画</span>把整页串起来</figcaption><div class="controls-slot"></div><div class="demo-body"></div></figure>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>内容依据三个视频的 YouTube 英文自动字幕整理，引述均为意译，时间戳链接到原视频对应位置。</p>
+    <p>标“实时”的演示在浏览器里真算：玩具强化学习的四种解法和成功率是设定的，图片量化用的是 16 色的小码本。标“示意”的图表和续写依据视频里展示的结果绘制或改写，不是原始数据。标“补充”的内容不来自视频。</p>
+    <p><a href="../">← 目录</a> · 姊妹篇：<a href="../zero-to-hero/">Zero to Hero 动画讲义</a> · 非官方学习笔记，与 Andrej Karpathy 本人无关。</p>
+  </div>
+</footer>
+
+<script src="js/core.js"></script>
+<script src="js/a.js"></script>
+<script src="js/b.js"></script>
+<script src="js/c.js"></script>
+<script src="js/d.js"></script>
+<script src="js/e.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const chips = [...document.querySelectorAll('.rail a')];
+  const secs = chips.map((a) => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+  const io = new IntersectionObserver((ents) => { for (const e of ents) if (e.isIntersecting) chips.forEach((c) => c.classList.toggle('on', c.getAttribute('href') === '#' + e.target.id)); }, { rootMargin: '-40% 0px -55% 0px' });
+  secs.forEach((s) => io.observe(s));
+});
+</script>
+</body>
+</html>

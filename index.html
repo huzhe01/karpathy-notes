@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Andrej Karpathy 课程与讲座的中文动画讲义：Zero to Hero 十集，以及三个面向大众的 LLM 讲座。">
+<title>Karpathy 动画讲义</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400&family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+/* Layout: a short directory — heading, one paragraph, two volume cards side by side, footer. */
+:root { color-scheme: light; --paper: #f2f4f6; --panel: #ffffff; --ink: #16202a; --muted: #5d6874; --rule: #d6dce1; --a: #1f63c6; --b: #6a4bd6;
+  --f-display: "Space Grotesk", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { color-scheme: dark; --paper: #0f1418; --panel: #161d23; --ink: #e3e9ed; --muted: #8e9aa5; --rule: #29333b; --a: #62a0ff; --b: #a48bff; } }
+:root[data-theme="dark"] { color-scheme: dark; --paper: #0f1418; --panel: #161d23; --ink: #e3e9ed; --muted: #8e9aa5; --rule: #29333b; --a: #62a0ff; --b: #a48bff; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.75 var(--f-body); }
+main { max-width: 980px; margin: 0 auto; padding-block: 64px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+.eyebrow { margin: 0; font: 12px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 700 clamp(2rem, 5vw, 3.2rem)/1.15 var(--f-display); text-wrap: balance; }
+.lede { margin: 0; max-width: 64ch; font-size: 1.05rem; }
+.vols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 8px; }
+.vol { display: grid; gap: 8px; align-content: start; padding: 20px 22px; border-radius: 12px; background: var(--panel); border: 1px solid var(--rule); color: inherit; text-decoration: none; transition: border-color .15s, transform .15s; }
+.vol:hover, .vol:focus-visible { border-color: var(--ink); transform: translateY(-2px); outline: none; }
+.vol .num { font: 700 2.6rem/1 var(--f-display); }
+.vol.a .num { color: var(--a); } .vol.b .num { color: var(--b); }
+.vol h2 { margin: 0; font: 600 1.35rem/1.3 var(--f-display); }
+.vol p { margin: 0; }
+.vol .meta { font: 12.5px var(--f-mono); color: var(--muted); }
+.vol .go { font-size: 14px; color: var(--muted); }
+footer { font-size: 13px; color: var(--muted); }
+footer p { margin: 4px 0; }
+@media (max-width: 680px) { .vols { grid-template-columns: minmax(0, 1fr); } main { padding-block: 40px 32px; } }
+@media (prefers-reduced-motion: reduce) { .vol { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Andrej Karpathy · 中文动画讲义</p>
+  <h1>Karpathy 动画讲义</h1>
+  <p class="lede">把 Andrej Karpathy 的课程和讲座拆成按步骤播放、可以拖动的小实验。每一步都标了原视频的时间点，点一下就跳到那一刻。第一册讲怎么从零写出神经网络和 GPT，第二册讲造出来的大模型是什么、有什么脾气、怎么用。</p>
+  <div class="vols">
+    <a class="vol a" href="zero-to-hero/">
+      <span class="num">01</span>
+      <h2>Zero to Hero 动画讲义</h2>
+      <p>从一个会求导的数字写到复现 GPT-2：micrograd、bigram、MLP、BatchNorm、手写反向传播、WaveNet、自注意力、tokenizer。</p>
+      <span class="meta">10 集 · 19 小时 20 分 · 41 个演示</span>
+      <span class="go">打开 →</span>
+    </a>
+    <a class="vol b" href="llm-overview/">
+      <span class="num">02</span>
+      <h2>LLM 全景动画讲义</h2>
+      <p>三个面向大众的讲座按主题重排：预训练数据、base model、后训练、模型心理学、强化学习与思考模型、安全、日常用法。</p>
+      <span class="meta">3 个讲座 · 约 6.7 小时 · 29 个演示</span>
+      <span class="go">打开 →</span>
+    </a>
+  </div>
+  <footer>
+    <p>内容依据视频的英文字幕整理，引述均为意译。非官方学习笔记，与 Andrej Karpathy 本人无关。</p>
+  </footer>
+</main>
+</body>
+</html>
